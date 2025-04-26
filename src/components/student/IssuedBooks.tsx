@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Book, Filter, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
+import { Book, Filter, CheckCircle, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../utils/AuthContext';
 import { getIssuedBooks } from '../../utils/mockData';
 import { IssuedBook } from '../../types';

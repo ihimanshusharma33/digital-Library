@@ -33,6 +33,9 @@ const SignIn: React.FC = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
 
+  // Display auth error from context if available
+  const displayError = error;
+
   const handleSignIn = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -55,8 +58,11 @@ const SignIn: React.FC = () => {
         // Remove password before storing
         const { password, ...secureUser } = user;
         
-        // Update auth context
-        login(secureUser as User);
+        // Generate a mock token
+        const mockToken = generateMockToken(secureUser);
+        
+        // Update auth context with user and token
+        login(secureUser as User, mockToken);
         
         // Redirect based on role
         if (secureUser.role === 'admin') {
@@ -69,6 +75,20 @@ const SignIn: React.FC = () => {
       }
       setIsLoading(false);
     }, 800);
+  };
+
+  // Generate a mock token for demonstration purposes
+  const generateMockToken = (user: Omit<typeof mockUsers[0], 'password'>): string => {
+    // In a real app, the token would come from your authentication server
+    const payload = {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      exp: Date.now() + 24 * 60 * 60 * 1000 // 24 hours from now
+    };
+    
+    // This is NOT a secure way to generate tokens, just for demonstration
+    return `mock_token_${btoa(JSON.stringify(payload))}_${Date.now()}`;
   };
 
   return (
@@ -84,9 +104,9 @@ const SignIn: React.FC = () => {
         
         <div className="bg-white py-8 px-6 shadow-sm rounded-lg border">
           <form onSubmit={handleSignIn}>
-            {error && (
+            {displayError && (
               <div className="bg-red-50 text-red-800 rounded-md p-3 mb-4 text-sm">
-                {error}
+                {displayError}
               </div>
             )}
             

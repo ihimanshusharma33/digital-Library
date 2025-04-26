@@ -387,6 +387,8 @@ export const books: Book[] = [
 ];
 
 // Mock data for issued books
+import { IssuedBook } from '../types';
+
 export const issuedBooks: IssuedBook[] = [
   {
     id: '1',

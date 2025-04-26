@@ -12,7 +12,6 @@ const TabNavigation: React.FC<TabNavigationProps> = ({ activeTab, onTabChange })
     { id: 'textbooks', label: 'Textbooks', icon: <BookOpen className="w-5 h-5" /> },
     { id: 'notes', label: 'Student Notes', icon: <FileText className="w-5 h-5" /> },
     { id: 'questions', label: 'Previous Questions', icon: <HelpCircle className="w-5 h-5" /> },
-    { id: 'notices', label: 'Notice Board', icon: <Bell className="w-5 h-5" /> },
   ];
 
   return (

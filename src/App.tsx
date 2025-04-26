@@ -9,13 +9,10 @@ import AdminLayout from './components/admin/AdminLayout';
 import Dashboard from './components/admin/Dashboard';
 import ResourcesManager from './components/admin/ResourcesManager';
 import NoticesManager from './components/admin/NoticesManager';
-import StudentLayout from './components/student/StudentLayout';
-import StudentDashboard from './components/student/StudentDashboard';
-import IssuedBooks from './components/student/IssuedBooks';
-import LibraryCardApplication from './components/student/LibraryCardApplication';
+import CoursesManager from './components/admin/CoursesManager';
+import BookStocksManager from './components/admin/BookStocksManager';
 import { AuthProvider, useAuth } from './utils/AuthContext';
 import { Course } from './types';
-import { courses } from './utils/mockData';
 
 // Protected route component for admin routes
 const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -26,21 +23,6 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   }
   
   if (!isAuthenticated || user?.role !== 'admin') {
-    return <Navigate to="/signin" />;
-  }
-  
-  return <>{children}</>;
-};
-
-// Protected route component for student routes
-const StudentRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated, isLoading, user } = useAuth();
-  
-  if (isLoading) {
-    return <div className="flex justify-center items-center h-screen">Loading...</div>;
-  }
-  
-  if (!isAuthenticated) {
     return <Navigate to="/signin" />;
   }
   
@@ -71,7 +53,7 @@ const AuthRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   }
   
   if (isAuthenticated) {
-    return <Navigate to={user?.role === 'admin' ? '/admin' : '/student'} />;
+    return <Navigate to={user?.role === 'admin' ? '/admin' : '/dashboard'} />;
   }
   
   return <>{children}</>;
@@ -105,7 +87,7 @@ const AppRoutes: React.FC = () => {
   const renderHomeContent = () => {
     switch (navigationState) {
       case 'courses':
-        return <CourseSelection onCourseSelect={handleCourseSelect} courses={courses} />;
+        return <CourseSelection onCourseSelect={handleCourseSelect} />;
       
       case 'semesters':
         return selectedCourse ? (
@@ -148,24 +130,10 @@ const AppRoutes: React.FC = () => {
         path="/dashboard" 
         element={
           <ProtectedRoute>
-            <CourseSelection onCourseSelect={handleCourseSelect} courses={courses} />
+            <CourseSelection onCourseSelect={handleCourseSelect} />
           </ProtectedRoute>
         } 
       />
-      
-      {/* Student routes */}
-      <Route 
-        path="/student" 
-        element={
-          <StudentRoute>
-            <StudentLayout />
-          </StudentRoute>
-        }
-      >
-        <Route index element={<StudentDashboard />} />
-        <Route path="library-card" element={<LibraryCardApplication />} />
-        <Route path="issued-books" element={<IssuedBooks />} />
-      </Route>
       
       {/* Admin routes */}
       <Route 
@@ -179,6 +147,8 @@ const AppRoutes: React.FC = () => {
         <Route index element={<Dashboard />} />
         <Route path="resources" element={<ResourcesManager />} />
         <Route path="notices" element={<NoticesManager />} />
+        <Route path="courses" element={<CoursesManager />} />
+        <Route path="books" element={<BookStocksManager />} />
         <Route path="users" element={<div>Users Management Page</div>} />
         <Route path="settings" element={<div>Settings Page</div>} />
       </Route>

@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
-import { getResourcesByCategory, getNoticesByCourse } from '../utils/mockData';
-import { Course, ResourceCategory, Resource } from '../types';
+import React, { useState, useEffect } from 'react';
+import { Course, ResourceCategory, Resource, UnifiedResource, ApiResourcesResponse, Notice } from '../types';
 import TabNavigation from './TabNavigation';
 import ResourceCard from './ResourceCard';
 import NoticeCard from './NoticeCard';
-import { ArrowLeft, Search } from 'lucide-react';
+import { ArrowLeft, Search, Loader2, Filter } from 'lucide-react';
+import { api, API_ENDPOINTS, ResourceApiResponse, ApiResponse } from '../utils/apiService';
+import { getApiBaseUrl } from '../utils/config';
+import { normalizeResources, sortResourcesByDate } from '../utils/resourceUtils';
 
 interface LibraryDashboardProps {
   course: Course;
@@ -15,41 +17,132 @@ interface LibraryDashboardProps {
 const LibraryDashboard: React.FC<LibraryDashboardProps> = ({ course, selectedSemester, onBack }) => {
   const [activeTab, setActiveTab] = useState<ResourceCategory>('textbooks');
   const [searchTerm, setSearchTerm] = useState('');
+  const [resources, setResources] = useState<UnifiedResource[]>([]);
+  const [filteredNotices, setFilteredNotices] = useState<Notice[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const getResources = (): Resource[] => {
-    let resources: Resource[] = [];
+  // Function to fetch resources from the unified resources endpoint
+  const fetchResources = async () => {
+    setLoading(true);
+    setError(null);
     
+    try {
+      // Prepare parameters for API call
+      const params = {
+        course_code: course.course_code || course.code,
+        semester: selectedSemester
+      };
+      
+      // Call the unified resources API endpoint
+      const response = await api.getResources(params);
+      console.log('API Response for resources:', response);
+      
+      if (response && response.status && response.data) {
+        // Normalize the resources from different types into a unified format
+        const normalizedResources = normalizeResources(response.data);
+        
+        // Sort resources by date (newest first)
+        const sortedResources = sortResourcesByDate(normalizedResources);
+        
+        setResources(sortedResources);
+      } else {
+        setResources([]);
+      }
+    } catch (err) {
+      console.error('Error fetching resources:', err);
+      setError('Failed to load resources. Please try again later.');
+      setResources([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Function to fetch notices for the current course and semester
+  const fetchNotices = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await api.get<ApiResponse<Notice[]>>(API_ENDPOINTS.NOTICES);
+      const data = response.data;
+      let noticesData: any[] = [];
+    
+      // Handle different API response structures
+      if ((data.status === 200 || data.status === true || data.success === true) && Array.isArray(data.data)) {
+        console.log('Processing notices from data.data array');
+        noticesData = data.data;
+      } else if (Array.isArray(data)) {
+        console.log('Processing notices from direct array');
+        noticesData = data;
+      } else {
+        console.error('Unexpected API response format:', data);
+        setFilteredNotices([]);
+        return;
+      }
+    
+      // Directly map notices without any filtering
+      const relevantNotices = noticesData.map((notice): Notice => ({
+        id: notice.id?.toString() ?? '',
+        title: notice.title ?? 'Untitled Notice',
+        description: notice.description ?? '',
+        date: notice.created_at ?? notice.date ?? new Date().toISOString(),
+        courseId: notice.course_id ? notice.course_id.toString() : notice.courseId,
+        semester: notice.semester ?? undefined,
+        attachment: notice.attachment_url
+          ? {
+              name: notice.attachment_name ?? 'Attachment',
+              url: notice.attachment_url,
+              type: notice.attachment_type ?? 'pdf',
+            }
+          : notice.attachment ?? undefined,
+      }));
+    
+      console.log('All notices:', relevantNotices);
+      setFilteredNotices(relevantNotices);
+    } catch (err) {
+      console.error('Error fetching notices:', err);
+      setFilteredNotices([]);
+    } finally {
+      setLoading(false);
+    }    
+  };
+  
+  // Fetch resources when selectedSemester changes
+  useEffect(() => {
+    fetchResources();
+    fetchNotices();
+  }, [selectedSemester, course.id]);
+  
+  // Filter resources based on search term and active tab
+  const filteredResources = resources.filter(resource => {
+    const matchesSearch = resource.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (resource.description?.toLowerCase().includes(searchTerm.toLowerCase()) || false);
+    
+    // Filter based on the active tab
+    let matchesCategory = false;
     switch (activeTab) {
       case 'textbooks':
-        resources = getResourcesByCategory(course.id, 'textbook', selectedSemester);
+        matchesCategory = resource.resourceType === 'ebook';
         break;
       case 'notes':
-        resources = getResourcesByCategory(course.id, 'notes', selectedSemester);
+        matchesCategory = resource.resourceType === 'note';
         break;
       case 'questions':
-        resources = getResourcesByCategory(course.id, 'questions', selectedSemester);
+        matchesCategory = resource.resourceType === 'question_paper';
         break;
       default:
-        resources = [];
+        matchesCategory = true;
     }
     
-    // Apply search term filter
-    return resources.filter(resource => 
-      resource.title.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  };
+    return matchesSearch && matchesCategory;
+  });
 
-  const getFilteredNotices = () => {
-    const notices = getNoticesByCourse(course.id, selectedSemester);
-      
-    return notices.filter(notice => 
-      notice.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      notice.description.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+  // Handle tab change
+  const handleTabChange = (tab: ResourceCategory) => {
+    setActiveTab(tab);
+    // No need to re-fetch - we'll just filter the existing resources
   };
-
-  const resources = getResources();
-  const filteredNotices = getFilteredNotices();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -64,8 +157,8 @@ const LibraryDashboard: React.FC<LibraryDashboardProps> = ({ course, selectedSem
               <ArrowLeft className="w-5 h-5 text-white" />
             </button>
             <div>
-              <h1 className="text-2xl font-bold">{course.name} - Semester {selectedSemester}</h1>
-              <p className="text-blue-100">{course.code}</p>
+              <h1 className="text-2xl font-bold">{course.name || course.course_name} - Semester {selectedSemester}</h1>
+              <p className="text-blue-100">{course.code || course.course_code}</p>
             </div>
           </div>
         </div>
@@ -91,21 +184,29 @@ const LibraryDashboard: React.FC<LibraryDashboardProps> = ({ course, selectedSem
           </div>
         </div>
 
-        <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
+        <TabNavigation activeTab={activeTab} onTabChange={handleTabChange} />
 
-        {/* Show resource count */}
-        <div className="text-sm text-gray-500 mb-4">
-          {activeTab !== 'notices' ? (
-            <p>Showing {resources.length} {activeTab} for semester {selectedSemester}</p>
-          ) : (
-            <p>Showing {filteredNotices.length} notices for semester {selectedSemester}</p>
-          )}
-        </div>
 
-        {activeTab !== 'notices' && (
+        {/* Show loading state */}
+        {loading && (
+          <div className="flex justify-center items-center py-12">
+            <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+            <span className="ml-2 text-gray-600">Loading {activeTab}...</span>
+          </div>
+        )}
+
+        {/* Show error message if any */}
+        {error && !loading && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            <p>{error}</p>
+          </div>
+        )}
+
+        {/* Show resources */}
+        {!loading && !error && activeTab !== 'notices' && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {resources.length > 0 ? (
-              resources.map(resource => (
+            {filteredResources.length > 0 ? (
+              filteredResources.map(resource => (
                 <ResourceCard key={resource.id} resource={resource} />
               ))
             ) : (
@@ -116,6 +217,7 @@ const LibraryDashboard: React.FC<LibraryDashboardProps> = ({ course, selectedSem
           </div>
         )}
 
+        {/* Show notices */}
         {activeTab === 'notices' && (
           <div className="space-y-4">
             {filteredNotices.length > 0 ? (

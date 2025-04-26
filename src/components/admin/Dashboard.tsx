@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, Users, FileText, Bell, ArrowRight } from 'lucide-react';
+import { BookOpen, Users, FileText, Bell, ArrowRight, BookMarked, PlusCircle } from 'lucide-react';
 import { courses, resources, notices } from '../../utils/mockData';
 
 interface StatCardProps {
@@ -98,6 +98,25 @@ const Dashboard: React.FC = () => {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
         <p className="text-gray-600">Welcome to the admin dashboard</p>
+      </div>
+
+      {/* Quick Action Buttons */}
+      <div className="mb-8">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Link 
+            to="/admin/book-stocks" 
+            className="flex items-center p-4 bg-white shadow rounded-lg hover:bg-blue-50 transition-colors"
+          >
+            <div className="mr-4 p-3 rounded-lg bg-blue-100">
+              <BookMarked className="h-6 w-6 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="font-medium">Book Stocks</h3>
+              <p className="text-sm text-gray-500">Manage physical book inventory</p>
+            </div>
+          </Link>
+        </div>
       </div>
 
       {/* Stats grid */}

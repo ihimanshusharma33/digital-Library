@@ -8,8 +8,8 @@ import {
   BookMarked, 
   Bell, 
   Users, 
-  Settings,
-  LogOut
+  LogOut,
+  GraduationCap
 } from 'lucide-react';
 import { useAuth } from '../../utils/AuthContext';
 
@@ -20,10 +20,10 @@ const AdminLayout: React.FC = () => {
 
   const sidebarItems = [
     { name: 'Dashboard', path: '/admin', icon: <Grid className="w-5 h-5" /> },
+    { name: 'Courses', path: '/admin/courses', icon: <GraduationCap className="w-5 h-5" /> },
     { name: 'Resources', path: '/admin/resources', icon: <BookMarked className="w-5 h-5" /> },
     { name: 'Notices', path: '/admin/notices', icon: <Bell className="w-5 h-5" /> },
-    { name: 'Users', path: '/admin/users', icon: <Users className="w-5 h-5" /> },
-    { name: 'Settings', path: '/admin/settings', icon: <Settings className="w-5 h-5" /> },
+    { name: 'Book Stocks', path: '/admin/books', icon: <BookOpen className="w-5 h-5" /> },
   ];
 
   return (
