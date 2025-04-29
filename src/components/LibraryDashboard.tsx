@@ -124,7 +124,7 @@ const LibraryDashboard: React.FC = () => {
         <div
           className="absolute  inset-0 bg-cover bg-center z-0"
           style={{
-            backgroundImage: "url('../../bg.png')",
+            backgroundImage: "url('https://res.cloudinary.com/dcliahekv/image/upload/v1745924828/bg_j20yug.png')",
           }}
         >
 

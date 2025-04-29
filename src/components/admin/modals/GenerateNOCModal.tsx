@@ -203,7 +203,7 @@ const fetchUserDetails = async (userId: number) => {
             {/* Logo */}
             <div className="text-center mb-6">
               <img 
-                src="../../../../iguHead.png"
+                src="https://res.cloudinary.com/dcliahekv/image/upload/v1745924910/iguHead_nytfgd.png"
                 alt="University Logo"
                 className=" w-full mx-auto"
               />
@@ -281,7 +281,7 @@ const fetchUserDetails = async (userId: number) => {
               </div>
               
               <div className="text-center w-40">
-                  <img src='../../../../IGU-seal.png'/>
+                  <img src='https://res.cloudinary.com/dcliahekv/image/upload/v1745924830/IGU-seal_mtcvqj.png'/>
               </div>
             </div>
           </div>
