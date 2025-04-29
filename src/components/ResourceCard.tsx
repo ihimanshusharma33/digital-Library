@@ -1,114 +1,139 @@
 import React from 'react';
-import { UnifiedResource } from '../types';
-import { FileText, Download, Calendar, BookOpen, FileQuestion, File } from 'lucide-react';
+import { Download, ExternalLink, Book, FileText, HelpCircle, Calendar } from 'lucide-react';
+import { Resource } from '../types';
 
 interface ResourceCardProps {
-  resource: UnifiedResource;
+  resource: Resource;
 }
 
-// Helper to determine the file type icon based on resource type
-const getResourceIcon = (resourceType: string) => {
-  switch (resourceType) {
-    case 'ebook':
-      return <BookOpen className="w-4 h-4 text-blue-500" />;
-    case 'note':
-      return <FileText className="w-4 h-4 text-green-500" />;
-    case 'question_paper':
-      return <FileQuestion className="w-4 h-4 text-orange-500" />;
-    default:
-      return <File className="w-4 h-4 text-gray-500" />;
-  }
-};
-
-// Helper to extract file extension from path
-const getFileExtension = (filePath: string): string => {
-  const match = filePath.match(/\.([^.]+)$/);
-  return match ? match[1].toLowerCase() : 'unknown';
-};
-
 const ResourceCard: React.FC<ResourceCardProps> = ({ resource }) => {
-  const { 
-    title, 
-    description, 
-    author, 
-    filePath, 
-    semester,
-    createdAt,
-    resourceType,
-    subject,
-    examType,
-    year
-  } = resource;
+  const { title, author, type, subject, fileUrl, createdAt } = resource;
   
-  const fileExtension = getFileExtension(filePath);
-  const createdAtFormatted = new Date(createdAt).toLocaleDateString('en-US', {
+  // Format the date to be more readable
+  const formattedDate = new Date(createdAt).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
-    day: 'numeric',
+    day: 'numeric'
   });
+  
+  // Get icon based on resource type
+  const getResourceIcon = () => {
+    switch (type) {
+      case 'ebook':
+        return <Book className="w-5 h-5 text-blue-600" />;
+      case 'note':
+        return <FileText className="w-5 h-5 text-green-600" />;
+      case 'question':
+        return <HelpCircle className="w-5 h-5 text-amber-600" />;
+      default:
+        return <FileText className="w-5 h-5 text-gray-600" />;
+    }
+  };
+  
+  // Get color theme based on resource type
+  const getTypeColor = () => {
+    switch (type) {
+      case 'ebook':
+        return 'bg-blue-100 text-blue-700';
+      case 'note':
+        return 'bg-green-100 text-green-700';
+      case 'question':
+        return 'bg-amber-100 text-amber-700';
+      default:
+        return 'bg-gray-100 text-gray-700';
+    }
+  };
+  
+  // Get type label
+  const getTypeLabel = () => {
+    switch (type) {
+      case 'ebook':
+        return 'E-Book';
+      case 'note':
+        return 'Note';
+      case 'question':
+        return 'Question Paper';
+      default:
+        return 'Resource';
+    }
+  };
+
+  const handleDownload = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    // Check if fileUrl exists
+    if (!fileUrl) {
+      alert('Download link is not available');
+      return;
+    }
+    
+    // If it's a direct file URL, create a download link
+    const link = document.createElement('a');
+    link.href = fileUrl;
+    link.target = '_blank';
+    link.download = title || 'download';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleViewClick = () => {
+    if (fileUrl) {
+      window.open(fileUrl, '_blank');
+    }
+  };
 
   return (
-    <div className="bg-white rounded-lg border shadow-sm p-5 transition-shadow hover:shadow-md">
-      <div className="mb-4">
-        <div className="flex items-center mb-2">
-          {getResourceIcon(resourceType)}
-          <span className="text-xs text-gray-500 uppercase ml-2">
-            {resourceType === 'ebook' ? 'E-Book' : 
-             resourceType === 'note' ? 'Note' : 
-             'Question Paper'}
-          </span>
-          <div className="ml-auto bg-blue-100 text-blue-800 text-xs font-medium rounded-full px-2.5 py-1">
-            Sem {semester}
+    <div className="bg-white border rounded-lg shadow-sm hover:shadow-md transition-shadow">
+      <div className="p-4">
+        <div className="flex justify-between items-start">
+          <div className="flex-1">
+            <div className="flex items-center">
+              <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${getTypeColor()}`}>
+                {getTypeLabel()}
+              </span>
+              {subject && (
+                <span className="ml-2 text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                  {subject}
+                </span>
+              )}
+            </div>
+            
+            <h3 className="text-lg font-semibold text-gray-900 mt-2 line-clamp-2">{title}</h3>
+            
+            <div className="flex items-center mt-2 text-sm text-gray-500">
+              {author && (
+                <div className="mr-3">
+                  By: {author}
+                </div>
+              )}
+              <div className="flex items-center">
+                <Calendar className="w-3 h-3 mr-1" />
+                {formattedDate}
+              </div>
+            </div>
+          </div>
+          
+          <div className="ml-4">
+            {getResourceIcon()}
           </div>
         </div>
-        <h3 className="font-medium text-gray-900 line-clamp-2">{title}</h3>
-      </div>
-      
-      {description && (
-        <div className="mb-4">
-          <p className="text-sm text-gray-600 line-clamp-2">{description}</p>
-        </div>
-      )}
-      
-      {/* Resource-specific details */}
-      <div className="flex flex-wrap gap-2 mb-3">
-        {subject && (
-          <span className="inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-xs text-gray-600">
-            {subject}
-          </span>
-        )}
         
-        {examType && (
-          <span className="inline-flex items-center rounded-md bg-yellow-50 px-2 py-1 text-xs text-yellow-700">
-            {examType}
-          </span>
-        )}
-        
-        {year && (
-          <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs text-blue-700">
-            {year}
-          </span>
-        )}
-        
-        <span className="inline-flex items-center rounded-md bg-red-50 px-2 py-1 text-xs text-red-700">
-          .{fileExtension}
-        </span>
-      </div>
-      
-      <div className="flex flex-wrap items-center justify-between text-xs">
-        <div className="flex items-center text-gray-500">
-          <Calendar className="w-3 h-3 mr-1" />
-          <span>{createdAtFormatted}</span>
-        </div>
-        
-        <div className="flex items-center">
-          <span className="text-gray-500 mr-2">By {author}</span>
-          <button 
-            className="p-1 rounded-full hover:bg-gray-100"
-            onClick={() => window.open(filePath, '_blank')}
-            title="Download resource"
+        <div className="flex justify-between mt-4 pt-3 border-t">
+          <button
+            onClick={handleViewClick}
+            className="flex items-center text-sm text-blue-600 hover:text-blue-800 font-medium"
           >
-            <Download className="w-4 h-4 text-gray-600" />
+            <ExternalLink className="w-4 h-4 mr-1" />
+            View
+          </button>
+          
+          <button
+            onClick={handleDownload}
+            className="flex items-center text-sm text-gray-700 hover:text-gray-900 font-medium"
+          >
+            <Download className="w-4 h-4 mr-1" />
+            Download
           </button>
         </div>
       </div>

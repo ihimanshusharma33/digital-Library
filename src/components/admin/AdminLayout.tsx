@@ -7,7 +7,6 @@ import {
   Grid, 
   BookMarked, 
   Bell, 
-  Users, 
   LogOut,
   GraduationCap
 } from 'lucide-react';
@@ -42,8 +41,8 @@ const AdminLayout: React.FC = () => {
           {/* Sidebar header */}
           <div className="flex items-center justify-between px-4 py-5 border-b">
             <Link to="/admin" className="flex items-center space-x-2">
-              <BookOpen className="w-8 h-8 text-blue-600" />
-              <span className="font-bold text-lg">Library Admin</span>
+           <img src="/logo.png" alt="Logo" className="h-12 w-12" />
+            <span className="text-xl font-semibold text-gray-800">Library Admin</span>
             </Link>
             <button 
               className="lg:hidden p-2 rounded-md hover:bg-gray-100"

@@ -1,9 +1,3 @@
-// CoursesManager.tsx  (React 18+, Tailwind, lucide‑react)
-
-/* __define-ocg__
-   Fully functional courses CRUD with toasts + modal feedback.
-   varOcg holds local state we tweak during requests.
-*/
 
 import React, { useEffect, useState } from 'react';
 import {
@@ -19,15 +13,10 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { Course } from '../../types';
-import { courses as mockCourses } from '../../utils/mockData';
 import { API_ENDPOINTS } from '../../utils/apiService';
+import CourseFormModal from './modals/CourseFormModal';
+import { ToastState } from '../../types';
 
-/* ---------- Toast ---------- */
-
-interface ToastState {
-  type: 'success' | 'error';
-  message: string;
-}
 interface ToastProps extends ToastState {
   onClose: () => void;
 }
@@ -93,8 +82,6 @@ const CoursesManager: React.FC = () => {
         } else throw new Error('Invalid format');
       } catch (err) {
         console.error(err);
-        setCourses(mockCourses);
-        setFiltered(mockCourses);
         setToast({ type: 'error', message: 'Failed to load courses. Using sample data.' });
       } finally {
         setIsLoading(false);
@@ -208,7 +195,6 @@ const CoursesManager: React.FC = () => {
   };
 
   /* ---------- render ---------- */
-
   return (
     <div className="mx-auto max-w-7xl">
       {toast && <Toast {...toast} onClose={() => setToast(null)} />}
@@ -342,9 +328,10 @@ const CoursesManager: React.FC = () => {
       {/* modal */}
       {modalOpen && (
         <CourseFormModal
+          isOpen={modalOpen}
           key={editing?.id ?? 'new'}
           course={editing}
-          onSave={async (d) => {
+          onSave={async (d:any) => {
             const res = await saveCourse(d);
             // Don't set toast notification in parent component anymore
             // Only the modal component will handle displaying the success/error messages
@@ -364,243 +351,3 @@ const CoursesManager: React.FC = () => {
 };
 
 export default CoursesManager;
-
-/* ---------- Modal ---------- */
-
-interface ModalProps {
-  course: Course | null;
-  onSave: (d: Omit<Course, 'id'>) => Promise<{ ok: boolean; message: string }>;
-  onClose: () => void;
-}
-const CourseFormModal: React.FC<ModalProps> = ({ course, onSave, onClose }) => {
-  const isEdit = !!course;
-  const [varOcg, setVarOcg] = useState<'idle' | 'saving' | 'error'>('idle');
-  const [note, setNote] = useState<ToastState | null>(null);
-  const [fields, setFields] = useState({
-    course_name: course?.course_name ?? course?.name ?? '',
-    course_code: course?.course_code ?? course?.code ?? '',
-    department: course?.department ?? '',
-    description: course?.description ?? '',
-    total_semesters: course?.total_semesters ?? 8,
-    is_active: course?.is_active ?? true,
-  });
-  const [errs, setErrs] = useState<Partial<Record<keyof typeof fields, string>>>({});
-
-  const validate = () => {
-    const e: typeof errs = {};
-    const rxCode = /^[A-Za-z0-9\-]+$/;
-    if (!fields.course_name.trim()) e.course_name = 'Required';
-    else if (fields.course_name.length > 255) e.course_name = '≤255 chars';
-    if (!fields.course_code.trim()) e.course_code = 'Required';
-    else if (fields.course_code.length > 50) e.course_code = '≤50 chars';
-    else if (!rxCode.test(fields.course_code)) e.course_code = 'Alphanumeric / hyphens only';
-    if (!fields.description.trim()) e.description = 'Required';
-    else if (fields.description.length > 1000) e.description = '≤1000 chars';
-    if (!fields.department.trim()) e.department = 'Required';
-    else if (fields.department.length > 255) e.department = '≤255 chars';
-    if (fields.total_semesters < 1 || fields.total_semesters > 12) e.total_semesters = '1‑12';
-    setErrs(e);
-    return !Object.keys(e).length;
-  };
-
-  const change = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, type, value } = e.target;
-    setFields((f) => ({
-      ...f,
-      [name]:
-        type === 'checkbox' ? (e.target as HTMLInputElement).checked : name === 'total_semesters' ? +value : value,
-    }));
-    if (errs[name as keyof typeof fields]) setErrs((x) => ({ ...x, [name]: undefined }));
-    if (note) setNote(null);
-  };
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate()) return setNote({ type: 'error', message: 'Fix errors above' });
-    setVarOcg('saving');
-    const res = await onSave({
-      ...fields,
-      created_at: course?.created_at ?? new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
-    if (res.ok) {
-      setVarOcg('idle');
-      setNote({ type: 'success', message: res.message });
-    } else {
-      setVarOcg('error');
-      setNote({ type: 'error', message: res.message });
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex min-h-screen items-center justify-center px-4 py-8">
-        <div className="fixed inset-0 bg-gray-500 opacity-75"></div>
-        <div className="relative w-full max-w-3xl overflow-hidden rounded-lg bg-white shadow-xl">
-          {/* header */}
-          <div className="flex items-center justify-between border-b px-6 py-4">
-            <h3 className="text-lg font-medium text-gray-900">{isEdit ? 'Edit Course' : 'Add New Course'}</h3>
-            <button
-              onClick={onClose}
-              disabled={varOcg === 'saving'}
-              className="rounded-md p-1 text-gray-400 hover:text-gray-500"
-            >
-              <X className="h-6 w-6" />
-            </button>
-          </div>
-
-          <div className="px-6 py-4">
-            {note && (
-              <div
-                className={`mb-4 flex items-center rounded-md p-4 text-sm ${
-                  note.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
-                }`}
-              >
-                {note.type === 'success' ? (
-                  <CheckCircle className="mr-2 h-5 w-5 text-green-500" />
-                ) : (
-                  <AlertCircle className="mr-2 h-5 w-5 text-red-500" />
-                )}
-                {note.message}
-              </div>
-            )}
-
-            {/* form */}
-            <form onSubmit={submit} noValidate className="space-y-4">
-              {/* name + code */}
-              <div className="grid gap-4 md:grid-cols-2">
-                {[
-                  { n: 'course_name', lbl: 'Course Name*', type: 'text' },
-                  { n: 'course_code', lbl: 'Course Code*', type: 'text' },
-                ].map(({ n, lbl, type }) => (
-                  <div key={n}>
-                    <label htmlFor={n} className="mb-1 block text-sm font-medium text-gray-700">
-                      {lbl}
-                    </label>
-                    <input
-                      id={n}
-                      name={n}
-                      type={type}
-                      value={(fields as any)[n]}
-                      onChange={change}
-                      disabled={varOcg === 'saving'}
-                      className={`w-full rounded-md border px-3 py-2 focus:border-blue-500 focus:ring-blue-500 ${
-                        errs[n as keyof typeof fields] ? 'border-red-500 bg-red-50' : ''
-                      }`}
-                    />
-                    {errs[n as keyof typeof fields] && (
-                      <p className="mt-1 text-sm text-red-600">{errs[n as keyof typeof fields]}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {/* description */}
-              <div>
-                <label htmlFor="description" className="mb-1 block text-sm font-medium text-gray-700">
-                  Description*
-                </label>
-                <textarea
-                  id="description"
-                  name="description"
-                  rows={3}
-                  value={fields.description}
-                  onChange={change}
-                  disabled={varOcg === 'saving'}
-                  className={`w-full rounded-md border px-3 py-2 focus:border-blue-500 focus:ring-blue-500 ${
-                    errs.description ? 'border-red-500 bg-red-50' : ''
-                  }`}
-                />
-                {errs.description && <p className="mt-1 text-sm text-red-600">{errs.description}</p>}
-              </div>
-
-              {/* dept + semesters */}
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <label htmlFor="department" className="mb-1 block text-sm font-medium text-gray-700">
-                    Department*
-                  </label>
-                  <input
-                    id="department"
-                    name="department"
-                    type="text"
-                    value={fields.department}
-                    onChange={change}
-                    disabled={varOcg === 'saving'}
-                    className={`w-full rounded-md border px-3 py-2 focus:border-blue-500 focus:ring-blue-500 ${
-                      errs.department ? 'border-red-500 bg-red-50' : ''
-                    }`}
-                  />
-                  {errs.department && <p className="mt-1 text-sm text-red-600">{errs.department}</p>}
-                </div>
-                <div>
-                  <label htmlFor="total_semesters" className="mb-1 block text-sm font-medium text-gray-700">
-                    Total Semesters*
-                  </label>
-                  <select
-                    id="total_semesters"
-                    name="total_semesters"
-                    value={fields.total_semesters}
-                    onChange={change}
-                    disabled={varOcg === 'saving'}
-                    className={`w-full rounded-md border px-3 py-2 focus:border-blue-500 focus:ring-blue-500 ${
-                      errs.total_semesters ? 'border-red-500 bg-red-50' : ''
-                    }`}
-                  >
-                    {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                      <option key={n} value={n}>
-                        {n} {n === 1 ? 'Semester' : 'Semesters'}
-                      </option>
-                    ))}
-                  </select>
-                  {errs.total_semesters && <p className="mt-1 text-sm text-red-600">{errs.total_semesters}</p>}
-                </div>
-              </div>
-
-              {/* active */}
-              <label className="mb-6 flex items-center">
-                <input
-                  type="checkbox"
-                  name="is_active"
-                  checked={fields.is_active}
-                  onChange={change}
-                  disabled={varOcg === 'saving'}
-                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="ml-2 text-sm text-gray-700">Active</span>
-              </label>
-
-              <p className="text-xs text-gray-500">* Required fields</p>
-
-              {/* actions */}
-              <div className="flex justify-end gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  disabled={varOcg === 'saving'}
-                  className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={varOcg === 'saving'}
-                  className="flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                >
-                  {varOcg === 'saving' && (
-                    <span className="mr-2 h-4 w-4 animate-spin rounded-full border-t-2 border-white" />
-                  )}
-                  {varOcg === 'saving'
-                    ? 'Saving…'
-                    : isEdit
-                    ? 'Update'
-                    : 'Save'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};

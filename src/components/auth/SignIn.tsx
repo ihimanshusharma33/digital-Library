@@ -1,94 +1,79 @@
 import React, { useState } from 'react';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, Loader } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { User } from '../../types';
 import { useAuth } from '../../utils/AuthContext';
-
-// Mock user data for demo purposes
-const mockUsers = [
-  {
-    id: '1',
-    name: 'Admin User',
-    email: 'admin@library.com',
-    password: 'admin123@321_4gdfh3',
-    role: 'admin',
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: '2',
-    name: 'Student User',
-    email: 'student@library.com',
-    password: 'student123',
-    role: 'student',
-    createdAt: new Date().toISOString()
-  }
-];
+import { api } from '../../utils/apiService';
+import { User } from '../../types';
 
 const SignIn: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  // Display auth error from context if available
-  const displayError = error;
-
-  const handleSignIn = (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setError('');
+    setError(null);
     
     // Simple validation
-    if (!email || !password) {
+    if (!email.trim() || !password.trim()) {
       setError('Please fill in all fields');
       setIsLoading(false);
       return;
     }
 
-    // Mock authentication
-    setTimeout(() => {
-      const user = mockUsers.find(
-        user => user.email === email && user.password === password
-      );
-
-      if (user) {
-        // Remove password before storing
-        const { password, ...secureUser } = user;
+    try {
+      // Call the API to authenticate user
+      const response = await api.post<{ data: { status: boolean; token: string; user: { id: number; name: string; email: string; role?: string; }; message?: string; } }>('/login', { email, password });
+      // Check for successful response
+      if (response && response.status) {
+        // Extract token and user data from response
+        const { token, user } = response;
         
-        // Generate a mock token
-        const mockToken = generateMockToken(secureUser);
+        // The API response doesn't include a role field, so determine based on email or other properties
+        const role = user.role;
+        const userData: User = {
+          id: user.id.toString(),
+          name: user.name,
+          email: user.email,
+          role: (['student', 'admin', 'staff'].includes(role || '') ? role : 'student') as 'student' | 'admin' | 'staff', // Default to 'student' if role is undefined or invalid
+          createdAt: new Date().toISOString()
+        };
         
-        // Update auth context with user and token
-        login(secureUser as User, mockToken);
+        // Store user data and token in auth context
+        login(userData, token);
         
         // Redirect based on role
-        if (secureUser.role === 'admin') {
+        if (userData.role === 'admin' || userData.role === 'staff') {
           navigate('/admin');
-        } else {
-          navigate('/');
+        }else {
+          navigate('/student');
         }
       } else {
-        setError('Invalid email or password');
+        setError(response?.message || 'Invalid credentials. Please try again.');
       }
+    } catch (error: any) {
+      console.error('Login error:', error);
+      
+      // Handle different types of errors
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        setError(error.response.data?.message || 'Invalid credentials. Please try again.');
+      } else if (error.request) {
+        // The request was made but no response was received
+        setError('No response from server. Please check your internet connection.');
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        setError('An error occurred while processing your request. Please try again.');
+      }
+    } finally {
       setIsLoading(false);
-    }, 800);
-  };
-
-  // Generate a mock token for demonstration purposes
-  const generateMockToken = (user: Omit<typeof mockUsers[0], 'password'>): string => {
-    // In a real app, the token would come from your authentication server
-    const payload = {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      exp: Date.now() + 24 * 60 * 60 * 1000 // 24 hours from now
-    };
-    
-    // This is NOT a secure way to generate tokens, just for demonstration
-    return `mock_token_${btoa(JSON.stringify(payload))}_${Date.now()}`;
+    }
   };
 
   return (
@@ -104,9 +89,9 @@ const SignIn: React.FC = () => {
         
         <div className="bg-white py-8 px-6 shadow-sm rounded-lg border">
           <form onSubmit={handleSignIn}>
-            {displayError && (
-              <div className="bg-red-50 text-red-800 rounded-md p-3 mb-4 text-sm">
-                {displayError}
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-800 rounded-md p-3 mb-4 text-sm">
+                {error}
               </div>
             )}
             
@@ -119,8 +104,9 @@ const SignIn: React.FC = () => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@library.com or student@library.com"
+                placeholder="Enter your email"
                 className="w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                required
               />
             </div>
             
@@ -133,8 +119,9 @@ const SignIn: React.FC = () => {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="admin123 or student123"
+                placeholder="Enter your password"
                 className="w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                required
               />
             </div>
             
@@ -143,19 +130,34 @@ const SignIn: React.FC = () => {
               disabled={isLoading}
               className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
             >
-              {isLoading ? 'Signing in...' : 'Sign in'}
+              {isLoading ? (
+                <span className="flex items-center justify-center">
+                  <Loader className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                  Signing in...
+                </span>
+              ) : 'Sign in'}
             </button>
           </form>
           
           <div className="mt-6 text-center">
             <p className="text-gray-600 text-sm">Don't have an account? <button onClick={() => navigate('/signup')} className="text-blue-600 hover:text-blue-800">Sign up</button></p>
           </div>
-        </div>
-        
-        <div className="mt-4 text-center">
-          <p className="text-xs text-gray-500">
-            For demo: Admin (admin@library.com / admin123) or Student (student@library.com / student123)
-          </p>
+          
+          <div className="mt-4 border-t pt-4">
+            <p className="text-xs text-gray-500 text-center mb-2">Demo Accounts:</p>
+            <div className="grid grid-cols-2 gap-2 text-xs text-gray-500">
+              <div>
+                <p className="font-medium">Staff:</p>
+                <p>staff@library.com</p>
+                <p>password123</p>
+              </div>
+              <div>
+                <p className="font-medium">Student:</p>
+                <p>student@library.com</p>
+                <p>password123</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

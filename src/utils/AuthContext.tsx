@@ -1,128 +1,122 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, AuthState } from '../types';
-import { useNavigate } from 'react-router-dom';
+import { User } from '../types';
+import { useNavigate, Navigate } from 'react-router-dom';
 
-interface AuthContextType extends AuthState {
+interface AuthContextType {
+  isAuthenticated: boolean;
+  user: User | null;
+  token: string | null;
   login: (user: User, token: string) => void;
-  user?: { name: string; email: string }; // Add the user property
-  getToken: () => string | null;
-  isTokenValid: () => boolean;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [authState, setAuthState] = useState<AuthState>({
-    user: null,
-    isAuthenticated: false,
-    isLoading: true,
-    error: null
-    
-  });
+  const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   
   const navigate = useNavigate();
 
+  // Load user from localStorage on mount
   useEffect(() => {
-    // Check if user and token are stored in localStorage on initial load
-    const storedUser = localStorage.getItem('currentUser');
-    const storedToken = localStorage.getItem('authToken');
+    const storedUser = localStorage.getItem('user');
+    const storedToken = localStorage.getItem('auth_token');
     
     if (storedUser && storedToken) {
       try {
-        const user = JSON.parse(storedUser) as User;
-        // Validate token (simplified example - in a real app, you might verify with your backend)
-        const isValid = validateToken(storedToken);
-        
-        if (isValid) {
-          setAuthState({
-            user,
-            isAuthenticated: true,
-            isLoading: false,
-            error: null
-          });
-        } else {
-          // Token is invalid or expired
-          handleInvalidSession('Your session has expired. Please sign in again.');
-        }
+        setUser(JSON.parse(storedUser));
+        setToken(storedToken);
+        setIsAuthenticated(true);
       } catch (error) {
-        console.error('Error parsing stored user', error);
-        handleInvalidSession('Session expired. Please sign in again.');
+        console.error('Error parsing stored user:', error);
+        // Clear invalid data
+        localStorage.removeItem('user');
+        localStorage.removeItem('auth_token');
       }
-    } else {
-      setAuthState(prev => ({ ...prev, isLoading: false }));
     }
   }, []);
-  
-  // Simple token validation function
-  const validateToken = (token: string): boolean => {
-    // In a real application, you would verify the token's signature, expiration, etc.
-    // For this example, we'll just check if it exists and isn't empty
-    return !!token && token.length > 10;
-  };
-  
-  const handleInvalidSession = (errorMessage: string) => {
-    localStorage.removeItem('currentUser');
-    localStorage.removeItem('authToken');
-    setAuthState({
-      user: null,
-      isAuthenticated: false,
-      isLoading: false,
-      error: errorMessage
-    });
-  };
 
+  // Login method
   const login = (user: User, token: string) => {
-    localStorage.setItem('currentUser', JSON.stringify(user));
-    localStorage.setItem('authToken', token);
+    setUser(user);
+    setToken(token);
+    setIsAuthenticated(true);
     
-    setAuthState({
-      user,
-      isAuthenticated: true,
-      isLoading: false,
-      error: null
-    });
+    // Store in localStorage
+    localStorage.setItem('user', JSON.stringify(user));
+    localStorage.setItem('auth_token', token);
   };
 
   const logout = () => {
-    localStorage.removeItem('currentUser');
-    localStorage.removeItem('authToken');
+    setUser(null);
+    setToken(null);
+    setIsAuthenticated(false);
     
-    setAuthState({
-      user: null,
-      isAuthenticated: false,
-      isLoading: false,
-      error: null
-    });
+    // Clear from localStorage
+    localStorage.removeItem('user');
+    localStorage.removeItem('auth_token');
     navigate('/signin');
-  };
-  
-  const getToken = (): string | null => {
-    return localStorage.getItem('authToken');
-  };
-  
-  const isTokenValid = (): boolean => {
-    const token = getToken();
-    return token ? validateToken(token) : false;
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      ...authState, 
-      login, 
-      logout, 
-      getToken,
-      isTokenValid 
-    }}>
+    <AuthContext.Provider value={{ isAuthenticated, user, token, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-export const useAuth = (): AuthContextType => {
+export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
+};
+
+export const AuthRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated, user } = useAuth();
+  
+  console.log("AuthRoute check:", { isAuthenticated, userRole: user?.role });
+
+  if (isAuthenticated) {
+    const redirectPath = user?.role === 'admin' ? '/admin' : '/dashboard';
+    console.log(`Redirecting authenticated user to: ${redirectPath}`);
+    return <Navigate to={redirectPath} />;
+  }
+
+  return <>{children}</>;
+};
+
+// Add this component alongside your other route components
+export const StudentRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated, user } = useAuth();
+
+  console.log("StudentRoute check:", { isAuthenticated, userRole: user?.role });
+
+  if (!isAuthenticated) {
+    return <Navigate to="/signin" />;
+  }
+
+  // Let both students and admins access student routes (admins often need access to student views)
+  return <>{children}</>;
+};
+
+export const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated, user } = useAuth();
+  
+  console.log("AdminRoute check:", { isAuthenticated, userRole: user?.role });
+
+  if (!isAuthenticated) {
+    return <Navigate to="/signin" />;
+  }
+
+  // Allow both admin and staff roles to access admin routes
+  if (user?.role !== 'admin' && user?.role !== 'staff') {
+    console.log("User not authorized for admin area:", user?.role);
+    return <Navigate to="/dashboard" />;
+  }
+
+  return <>{children}</>;
 };

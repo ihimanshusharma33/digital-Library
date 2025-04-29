@@ -99,7 +99,6 @@ const BookStocksManager: React.FC = () => {
         if (data && data.status) {
           setBooks(data.data);
           setFilteredBooks(data.data);
-          // Removed unused setApiError call
         } else {
           console.error('Failed to fetch books from API');
           // Removed unused setApiError call
@@ -337,6 +336,87 @@ const BookStocksManager: React.FC = () => {
           Add Book
         </button>
       </div>
+
+      {/* Search and Filters */}
+      <div className="bg-white shadow rounded-lg p-6 mb-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="relative flex-1">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              placeholder="Search books..."
+              className="pl-10 pr-4 py-2 border rounded-lg w-full focus:ring-blue-500 focus:border-blue-500"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          
+          <div className="flex flex-wrap gap-3">
+            <div className="relative">
+              <select
+                value={filterCategory || ''}
+                onChange={(e) => setFilterCategory(e.target.value || undefined)}
+                className="appearance-none bg-white border rounded-lg px-4 py-2 pr-8 leading-tight focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">All Categories</option>
+                {categories.map(category => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="relative">
+              <select
+                value={filterCourse || ''}
+                onChange={(e) => setFilterCourse(e.target.value || undefined)}
+                className="appearance-none bg-white border rounded-lg px-4 py-2 pr-8 leading-tight focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">All Courses</option>
+                {courses.map(course => (
+                  <option key={course.id} value={course.code}>
+                    {course.code} - {course.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="relative">
+              <select
+                value={filterSemester === undefined ? '' : filterSemester}
+                onChange={(e) => setFilterSemester(e.target.value ? parseInt(e.target.value, 10) : undefined)}
+                className="appearance-none bg-white border rounded-lg px-4 py-2 pr-8 leading-tight focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">All Semesters</option>
+                {[1, 2, 3, 4, 5, 6, 7, 8].map(sem => (
+                  <option key={sem} value={sem}>
+                    Semester {sem}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="relative">
+              <select
+                value={filterAvailability === undefined ? '' : filterAvailability ? 'available' : 'unavailable'}
+                onChange={(e) => {
+                  if (e.target.value === '') setFilterAvailability(undefined);
+                  else setFilterAvailability(e.target.value === 'available');
+                }}
+                className="appearance-none bg-white border rounded-lg px-4 py-2 pr-8 leading-tight focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">All Availability</option>
+                <option value="available">In Stock</option>
+                <option value="unavailable">Out of Stock</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+      
       {/* Books Table */}
       <div className="bg-white shadow-md rounded-lg overflow-hidden">
         {isLoading ? (

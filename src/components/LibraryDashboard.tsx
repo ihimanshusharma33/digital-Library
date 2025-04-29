@@ -1,239 +1,288 @@
 import React, { useState, useEffect } from 'react';
-import { Course, ResourceCategory, Resource, UnifiedResource, ApiResourcesResponse, Notice } from '../types';
-import TabNavigation from './TabNavigation';
-import ResourceCard from './ResourceCard';
-import NoticeCard from './NoticeCard';
-import { ArrowLeft, Search, Loader2, Filter } from 'lucide-react';
-import { api, API_ENDPOINTS, ResourceApiResponse, ApiResponse } from '../utils/apiService';
+import { useNavigate } from 'react-router-dom';
+import { Course, Notice } from '../types';
+import { Search, BookOpen, Bell, ExternalLink } from 'lucide-react';
+import { api, API_ENDPOINTS } from '../utils/apiService';
 import { getApiBaseUrl } from '../utils/config';
-import { normalizeResources, sortResourcesByDate } from '../utils/resourceUtils';
+import { useAuth } from '../utils/AuthContext';
+import { ResourceApiResponse } from '../types';
+import SemesterSelection from './SemesterSelection';
+import Footer from './Layout/Footer';
 
-interface LibraryDashboardProps {
-  course: Course;
-  selectedSemester: number;
-  onBack: () => void;
-}
+const LibraryDashboard: React.FC = () => {
+  const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuth();
 
-const LibraryDashboard: React.FC<LibraryDashboardProps> = ({ course, selectedSemester, onBack }) => {
-  const [activeTab, setActiveTab] = useState<ResourceCategory>('textbooks');
+  // State for courses list
+  const [courses, setCourses] = useState<Course[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [resources, setResources] = useState<UnifiedResource[]>([]);
-  const [filteredNotices, setFilteredNotices] = useState<Notice[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showsemester, setShowSemester] = useState(false);
 
-  // Function to fetch resources from the unified resources endpoint
-  const fetchResources = async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      // Prepare parameters for API call
-      const params = {
-        course_code: course.course_code || course.code,
-        semester: selectedSemester
-      };
-      
-      // Call the unified resources API endpoint
-      const response = await api.getResources(params);
-      console.log('API Response for resources:', response);
-      
-      if (response && response.status && response.data) {
-        // Normalize the resources from different types into a unified format
-        const normalizedResources = normalizeResources(response.data);
-        
-        // Sort resources by date (newest first)
-        const sortedResources = sortResourcesByDate(normalizedResources);
-        
-        setResources(sortedResources);
-      } else {
-        setResources([]);
-      }
-    } catch (err) {
-      console.error('Error fetching resources:', err);
-      setError('Failed to load resources. Please try again later.');
-      setResources([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  // Function to fetch notices for the current course and semester
-  const fetchNotices = async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const response = await api.get<ApiResponse<Notice[]>>(API_ENDPOINTS.NOTICES);
-      const data = response.data;
-      let noticesData: any[] = [];
-    
-      // Handle different API response structures
-      if ((data.status === 200 || data.status === true || data.success === true) && Array.isArray(data.data)) {
-        console.log('Processing notices from data.data array');
-        noticesData = data.data;
-      } else if (Array.isArray(data)) {
-        console.log('Processing notices from direct array');
-        noticesData = data;
-      } else {
-        console.error('Unexpected API response format:', data);
-        setFilteredNotices([]);
-        return;
-      }
-    
-      // Directly map notices without any filtering
-      const relevantNotices = noticesData.map((notice): Notice => ({
-        id: notice.id?.toString() ?? '',
-        title: notice.title ?? 'Untitled Notice',
-        description: notice.description ?? '',
-        date: notice.created_at ?? notice.date ?? new Date().toISOString(),
-        courseId: notice.course_id ? notice.course_id.toString() : notice.courseId,
-        semester: notice.semester ?? undefined,
-        attachment: notice.attachment_url
-          ? {
-              name: notice.attachment_name ?? 'Attachment',
-              url: notice.attachment_url,
-              type: notice.attachment_type ?? 'pdf',
-            }
-          : notice.attachment ?? undefined,
-      }));
-    
-      console.log('All notices:', relevantNotices);
-      setFilteredNotices(relevantNotices);
-    } catch (err) {
-      console.error('Error fetching notices:', err);
-      setFilteredNotices([]);
-    } finally {
-      setLoading(false);
-    }    
-  };
-  
-  // Fetch resources when selectedSemester changes
+  // State for notices
+  const [notices, setNotices] = useState<Notice[]>([]);
+  const [noticesLoading, setNoticesLoading] = useState(true);
+  const [noticesError, setNoticesError] = useState<string | null>(null);
+  const [currentCourse, setCurrentCourse] = useState<Course | null>(null);
+
+  // Fetch courses list on component mount
   useEffect(() => {
-    fetchResources();
-    fetchNotices();
-  }, [selectedSemester, course.id]);
-  
-  // Filter resources based on search term and active tab
-  const filteredResources = resources.filter(resource => {
-    const matchesSearch = resource.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (resource.description?.toLowerCase().includes(searchTerm.toLowerCase()) || false);
-    
-    // Filter based on the active tab
-    let matchesCategory = false;
-    switch (activeTab) {
-      case 'textbooks':
-        matchesCategory = resource.resourceType === 'ebook';
-        break;
-      case 'notes':
-        matchesCategory = resource.resourceType === 'note';
-        break;
-      case 'questions':
-        matchesCategory = resource.resourceType === 'question_paper';
-        break;
-      default:
-        matchesCategory = true;
-    }
-    
-    return matchesSearch && matchesCategory;
-  });
+    const fetchCourses = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`${getApiBaseUrl()}${API_ENDPOINTS.COURSES}`);
+        const data = await response.json();
 
-  // Handle tab change
-  const handleTabChange = (tab: ResourceCategory) => {
-    setActiveTab(tab);
-    // No need to re-fetch - we'll just filter the existing resources
+        if (data && data.data) {
+          const courseList = data.data.map((course: any) => ({
+            id: course.id.toString(),
+            course_name: course.course_name || course.name,
+            course_code: course.course_code || course.code,
+            department: course.department,
+            total_semesters: course.total_semesters || 8,
+            description: course.description,
+            is_active: course.is_active,
+            created_at: course.created_at,
+            updated_at: course.updated_at,
+          }));
+          setCourses(courseList);
+        } else {
+          setCourses([]);
+          setError('No courses available');
+        }
+      } catch (err) {
+        console.error('Error fetching courses:', err);
+        setError('Failed to load courses. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCourses();
+  }, []);
+
+  // Fetch notices on component mount
+  useEffect(() => {
+    const fetchNotices = async () => {
+      try {
+        setNoticesLoading(true);
+        const response = await api.get<ResourceApiResponse<Notice[]>>(API_ENDPOINTS.NOTICES);
+        const notice: Notice[] = response.data;
+        setNoticesError(null);
+        if (notice) {
+          setNotices(notice.slice(0, 5));
+        }
+        else {
+          setNotices([]);
+          setNoticesError('No notices available');
+        }
+      } catch (err) {
+        console.error('Error fetching notices:', err);
+        setNoticesError('Failed to load notices. Please try again later.');
+      } finally {
+        setNoticesLoading(false);
+      }
+    };
+    fetchNotices();
+  }, []);
+
+  // Handle search input change
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
   };
 
+  // Filter courses based on search
+  const filteredCourses = courses.filter(
+    course =>
+      course.course_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      course.course_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (course.department && course.department.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  // Handle course selection
+  const handleCourseSelect = (course: Course) => {
+    setCurrentCourse(course);
+    setShowSemester(true);
+  };
+
+  // Format date
+
+  if (showsemester && currentCourse) {
+    console.log('currentCourse', currentCourse);
+    return (
+      <SemesterSelection
+        course={currentCourse as Course}
+        onBack={() => setShowSemester(false)}
+      />
+    );
+  }
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header Section */}
-      <div className="bg-blue-700 text-white py-6 px-4">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex items-center mb-4">
-            <button 
-              onClick={onBack}
-              className="mr-4 p-2 rounded-full hover:bg-blue-600 transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5 text-white" />
-            </button>
+      <div className="bg-blue-700 h-[55vh] text-white relative overflow-hidden">
+
+        <div
+          className="absolute  inset-0 bg-cover bg-center z-0"
+          style={{
+            backgroundImage: "url('../../bg.png')",
+          }}
+        >
+
+          <div className="absolute inset-0 bg-gray-600 bg-opacity-50"></div>
+          {!isAuthenticated && (
+            <div className="mt-8 absolute top-5 right-10">
+              <button
+                onClick={() => navigate('/signin')}
+                className="px-5 py-2.5 bg-red-500 text-white rounded shadow-sm hover:bg-red-600 mr-4 font-medium"
+              >login
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="max-w-7xl mx-auto px-4 py-16 relative z-10">
+          <div className='flex justify-center'>
             <div>
-              <h1 className="text-2xl font-bold">{course.name || course.course_name} - Semester {selectedSemester}</h1>
-              <p className="text-blue-100">{course.code || course.course_code}</p>
+              <h1 className="text-4xl text-center ml-4 md:text-5xl font-bold">Wel come to IGU Digital Library</h1>
+              <img src='https://himachal365.s3.ap-south-1.amazonaws.com/73/Igu-New-Logo-website-1.png' className='w-full' />
+
+              <div className="mt-8 max-w-xl mx-auto">
+                <div className="relative ">
+                  <input
+                    type="text"
+                    className="w-full px-4 py-3 pl-10 border-0 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 text-gray-900"
+                    placeholder="Search courses by name, code or department..."
+                    value={searchTerm}
+                    onChange={handleSearchChange}
+                  />
+                  <Search className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
-          <div className="mb-4 md:mb-0">
-            <h2 className="text-xl font-semibold text-gray-800">Resources for Semester {selectedSemester}</h2>
+      <div className="max-w-7xl mx-auto px-4 py-12">
+        <div className="lg:grid lg:grid-cols-3 lg:gap-8">
+          {/* Main Content - Courses List */}
+          <div className="lg:col-span-2">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+              <BookOpen className="mr-2 h-6 w-6 text-blue-600" />
+              Available Courses
+            </h2>
+
+            {loading ? (
+              <div className="flex justify-center items-center h-[22vh]  py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+              </div>
+            ) : error ? (
+              <div className="bg-red-50 p-4 rounded-md text-center text-red-700">
+                <p>{error}</p>
+              </div>
+            ) : (
+              <div className="min-h-[60vh] grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {filteredCourses.length > 0 ? (
+                  filteredCourses.map((course) => (
+                    <div
+                      key={course.id}
+                      className="bg-white p-6 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                      onClick={() => { handleCourseSelect(course) }}
+                    >
+                      <h3 className="font-medium text-lg text-gray-900 mb-2">{course.course_name}</h3>
+                      <p className="text-sm text-gray-500 mb-4">{course.course_code}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {course.department && (
+                          <span className="text-xs bg-blue-50 text-blue-600 py-1 px-2 rounded">
+                            {course.department}
+                          </span>
+                        )}
+                        <span className="text-xs bg-gray-100 text-gray-600 py-1 px-2 rounded">
+                          {course.total_semesters} semesters
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-full bg-gray-50 p-8 rounded-lg text-center">
+                    <p className="text-gray-500">
+                      {searchTerm ? 'No courses match your search' : 'No courses available'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-          
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-gray-400" />
+
+          {/* Notice Board */}
+          <div className="mt-8 lg:mt-0">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+              <Bell className="mr-2 h-6 w-6 text-blue-600" />
+              Notice Board
+            </h2>
+
+            <div className="bg-white rounded-lg shadow-sm">
+              {noticesLoading ? (
+                <div className="flex justify-center items-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+                </div>
+              ) : noticesError ? (
+                <div className="p-4 text-center text-red-600">
+                  <p>{noticesError}</p>
+                </div>
+              ) : notices.length === 0 ? (
+                <div className="p-8 text-center text-gray-500">
+                  <p>No notices available</p>
+                </div>
+              ) : (
+                <div>
+                  {notices.map((notice, index) => (
+                    <div
+                      key={notice.id}
+                      className={`p-4 ${index !== notices.length - 1 ? 'border-b border-gray-100' : ''}`}
+                    >
+                      <div className="flex justify-between items-start">
+                        <h3 className="font-medium text-gray-900">{notice.title}</h3>
+                        <span className="text-xs text-gray-500 mt-1 whitespace-nowrap ml-2">{notice.created_at ? new Date(notice.created_at).toLocaleDateString()
+                          : 'N/A'}
+                        </span>
+                      </div>
+
+                      <p className="mt-2 text-sm text-gray-600 line-clamp-2">
+                        {notice.content}
+                      </p>
+
+                      <div className="mt-3">
+                        <button
+                          className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center"
+                          onClick={() => navigate(`/notices/${notice.id}`)}
+                        >
+                          Read More <ExternalLink className="ml-1 h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+
+                  <div className="p-4 bg-gray-50 text-center border-t border-gray-100">
+                    <button
+                      className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                      onClick={() => navigate('/notices')}
+                    >
+                      View All Notices
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-            <input
-              type="text"
-              placeholder="Search resources..."
-              className="pl-10 pr-4 py-2 border rounded-lg w-full md:w-64 focus:ring-blue-500 focus:border-blue-500"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
           </div>
         </div>
-
-        <TabNavigation activeTab={activeTab} onTabChange={handleTabChange} />
-
-
-        {/* Show loading state */}
-        {loading && (
-          <div className="flex justify-center items-center py-12">
-            <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-            <span className="ml-2 text-gray-600">Loading {activeTab}...</span>
-          </div>
-        )}
-
-        {/* Show error message if any */}
-        {error && !loading && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-            <p>{error}</p>
-          </div>
-        )}
-
-        {/* Show resources */}
-        {!loading && !error && activeTab !== 'notices' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredResources.length > 0 ? (
-              filteredResources.map(resource => (
-                <ResourceCard key={resource.id} resource={resource} />
-              ))
-            ) : (
-              <div className="col-span-full text-center py-10">
-                <p className="text-gray-500">No {activeTab} found for semester {selectedSemester}</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Show notices */}
-        {activeTab === 'notices' && (
-          <div className="space-y-4">
-            {filteredNotices.length > 0 ? (
-              filteredNotices.map(notice => (
-                <NoticeCard key={notice.id} notice={notice} />
-              ))
-            ) : (
-              <div className="text-center py-10">
-                <p className="text-gray-500">No notices found for semester {selectedSemester}</p>
-              </div>
-            )}
-          </div>
-        )}
       </div>
+
+      <Footer />
     </div>
   );
+
+
 };
 
 export default LibraryDashboard;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   PlusCircle, 
   Search, 
@@ -8,15 +8,11 @@ import {
   ChevronDown,
   ChevronUp,
   Calendar,
-  Upload,
-  FileText,
-  X,
-  CheckCircle,
-  AlertCircle
+  X
 } from 'lucide-react';
-import { Notice, Course } from '../../types';
-import { api, API_ENDPOINTS, ApiResponse, ResourceApiResponse } from '../../utils/apiService';
-import { getApiBaseUrl } from '../../utils/config';
+import { Notice, Course, ResourceApiResponse,ApiResponse } from '../../types';
+import { api, API_ENDPOINTS ,} from '../../utils/apiService';
+import NoticeFormModal from './modals/NoticeFormModal';
 
 const NoticesManager: React.FC = () => {
   const [notices, setNotices] = useState<Notice[]>([]);
@@ -75,25 +71,27 @@ const NoticesManager: React.FC = () => {
         console.log('Notices API Response:', data); // Debug log
         
         if (Array.isArray(data)) {
-          
-          // Map API response to match our application's notice format
+
           const formattedNotices: Notice[] = data.map((notice: any): Notice => ({
-            id: notice.id.toString(),
+            id: String(notice.id),
             title: notice.title || 'Untitled Notice',
             description: notice.description || '',
             date: notice.created_at || notice.date || new Date().toISOString(),
             course_code: notice.course_code || notice.course_id?.toString() || '',
-            semester: notice.semester || undefined,
+            semester: notice.semester ?? undefined,
             attachment: notice.attachment_url ? {
               name: notice.attachment_name || 'Attachment',
               url: notice.attachment_url,
-              type: notice.attachment_type || 'pdf'
+              type: notice.attachment_type || 'pdf',
             } : undefined,
             priority: notice.priority || 'medium',
             expiry_date: notice.expiry_date,
-            created_by: notice.created_by || notice.author
+            created_by: notice.created_by || notice.author,
+            is_active: notice.is_active ?? true, // Default true if not provided
+            publish_date: notice.publish_date || new Date().toISOString(), // Default to current date
+            end_date: notice.end_date || null, // Default to null if not provided
           }));
-          
+        
           setNotices(formattedNotices);
           setFilteredNotices(formattedNotices);
           setError(null);
@@ -197,10 +195,7 @@ const NoticesManager: React.FC = () => {
     if (window.confirm('Are you sure you want to delete this notice?')) {
       try {
         const response = await api.delete<ApiResponse<null>>(`${API_ENDPOINTS.NOTICES}/${id}`);
-        
-        const data = response.data;
-        
-        if (data.success) {
+        if (response.success) {
           // Update local state after successful deletion
           const updatedNotices = notices.filter(notice => notice.id !== id);
           setNotices(updatedNotices);
@@ -217,10 +212,10 @@ const NoticesManager: React.FC = () => {
             setNotification(null);
           }, 5000);
         } else {
-          console.error('Failed to delete notice:', data.message);
+          console.error('Failed to delete notice:', response.message);
           setNotification({
             type: 'error',
-            message: `Failed to delete notice: ${data.message || 'Unknown error'}`
+            message: `Failed to delete notice: ${response.message || 'Unknown error'}`
           });
         }
       } catch (error) {
@@ -235,32 +230,20 @@ const NoticesManager: React.FC = () => {
 
   const handleSaveNotice = async (noticeData: Omit<Notice, 'id'>) => {
     try {
-      let response;
-      let data;
-      
       // Get the course code from the selected course
       const selectedCourse = courses.find(course => course.id.toString() === noticeData.course_code);
-      
-      // Create FormData object for multipart/form-data submission
       const formData = new FormData();
-      
-      // Add all JSON fields as form fields
       formData.append('title', noticeData.title);
       formData.append('description', noticeData.description);
-      formData.append('user_id', '1'); // Using default user_id, you may need to get the actual user ID from your auth context
+      formData.append('user_id', '1');
       formData.append('course_code', selectedCourse?.course_code || '');
-      
-      // Add optional fields only if they exist
       if (noticeData.semester) {
         formData.append('semester', noticeData.semester.toString());
       }
-      formData.append('notification_type', 'general'); // Setting default notification type
+      formData.append('notification_type', 'general'); 
       if (noticeData.expiry_date) {
         formData.append('expires_at', noticeData.expiry_date);
       }
-      
-      // Handle file attachment if present
-      let hasAttachment = false;
       if (noticeData.attachment && noticeData.attachment.url) {
         // Check if the URL is a data URL (from file input)
         if (noticeData.attachment.url.startsWith('data:')) {
@@ -268,10 +251,7 @@ const NoticesManager: React.FC = () => {
           const response = await fetch(noticeData.attachment.url);
           const blob = await response.blob();
           const file = new File([blob], noticeData.attachment.name, { type: blob.type });
-          
-          // Append file to FormData with field name 'attachment'
           formData.append('attachment', file);
-          hasAttachment = true;
         } else if (currentNotice?.attachment?.url === noticeData.attachment.url) {
           // This is an existing attachment URL, not a new file upload
           formData.append('attachment_url', noticeData.attachment.url);
@@ -281,94 +261,6 @@ const NoticesManager: React.FC = () => {
       }
 
       console.log("Sending notice data to API as multipart/form-data");
-
-      if (currentNotice) {
-        // Update existing notice
-        const endpoint = `${API_ENDPOINTS.NOTICES}/${currentNotice.id}`;
-        
-        // For updates with files, we may need to use a different approach than standard put
-        if (hasAttachment) {
-          // Some APIs require a _method field for method spoofing when dealing with files
-          formData.append('_method', 'PUT');
-          
-          response = await fetch(`${getApiBaseUrl()}${endpoint}`, {
-            method: 'POST', // Actually sending as POST but with _method=PUT
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}` // Include auth token if required
-              // Note: Do NOT set Content-Type here, the browser will set it with the correct boundary
-            },
-            body: formData
-          });
-          
-          data = await response.json();
-        } else {
-          // If no file, we can use the standard API put method with FormData
-          response = await fetch(`${getApiBaseUrl()}${endpoint}`, {
-            method: 'PUT',
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}` // Include auth token if required
-            },
-            body: formData
-          });
-          
-          data = await response.json();
-        }
-        
-        if (data.success || response.ok) {
-          // Update local state after successful update
-          const updatedNotices = notices.map(notice => 
-            notice.id === currentNotice.id 
-              ? { 
-                  ...notice, 
-                  ...noticeData,
-                  // Keep the existing id and date
-                  id: notice.id,
-                  date: data.data?.updated_at || notice.date
-                } 
-              : notice
-          );
-          setNotices(updatedNotices);
-          setFilteredNotices(updatedNotices);
-          
-          // Return success to the modal (instead of showing notification here)
-          return { success: true, message: 'Notice updated successfully' };
-        } else {
-          console.error('Failed to update notice:', data.message);
-          return { success: false, message: `Failed to update notice: ${data.message || 'Unknown error'}` };
-        }
-      } else {
-        // Create new notice
-        const endpoint = API_ENDPOINTS.NOTICES;
-        
-        response = await fetch(`${getApiBaseUrl()}${endpoint}`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}` // Include auth token if required
-            // Note: Do NOT set Content-Type header, the browser will set it with the correct boundary
-          },
-          body: formData
-        });
-        
-        data = await response.json();
-        
-        if (data.success || response.ok) {
-          // Create a new notice object with the response data
-          const newNotice: Notice = {
-            id: data.data?.id.toString() || Math.random().toString(),
-            ...noticeData,
-            date: data.data?.created_at || new Date().toISOString()
-          };
-          
-          setNotices([...notices, newNotice]);
-          setFilteredNotices([...notices, newNotice]);
-          
-          // Return success to the modal (instead of showing notification here)
-          return { success: true, message: 'Notice created successfully' };
-        } else {
-          console.error('Failed to create notice:', data.message);
-          return { success: false, message: `Failed to create notice: ${data.message || 'Unknown error'}` };
-        }
-      }
     } catch (error) {
       console.error('Error saving notice:', error);
       return { success: false, message: 'Network error while saving notice. Please try again later.' };
@@ -613,409 +505,13 @@ const NoticesManager: React.FC = () => {
           onSave={handleSaveNotice}
           onClose={() => setIsModalOpen(false)}
           courses={courses}
+          isOpen={isModalOpen}
         />
       )}
     </div>
   );
 };
 
-// Notice Form Modal Component
-interface NoticeFormModalProps {
-  notice: Notice | null;
-  onSave: (data: Omit<Notice, 'id'>) => Promise<{ success: boolean; message: string }>;
-  onClose: () => void;
-  courses: Course[];
-}
 
-const NoticeFormModal: React.FC<NoticeFormModalProps> = ({ 
-  notice, 
-  onSave, 
-  onClose,
-  courses
-}) => {
-  const isEditing = !!notice;
-  
-  if (courses.length === 0) {
-    return (
-      <div className="fixed inset-0 z-50 overflow-y-auto">
-        <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center">
-          <div className="fixed inset-0 transition-opacity" onClick={onClose}>
-            <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
-          </div>
-
-          <span className="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
-          <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-            <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-              <div className="sm:flex sm:items-start">
-                <div className="mt-3 text-center sm:mt-0 sm:text-left">
-                  <h3 className="text-lg font-medium leading-6 text-gray-900">Loading</h3>
-                  <div className="mt-2">
-                    <p className="text-sm text-gray-500">
-                      Waiting for courses to load...
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-              <button 
-                type="button" 
-                onClick={onClose}
-                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-  
-  const [formData, setFormData] = useState<{
-    title: string;
-    description: string;
-    course_code: string;
-    semester?: number;
-    attachment?: {
-      name: string;
-      url: string;
-      type: string;
-    };
-  }>({
-    title: notice?.title || '',
-    description: notice?.description || '',
-    course_code: notice?.course_code || (courses.length > 0 ? String(courses[0].id) : ''),
-    semester: notice?.semester,
-    attachment: notice?.attachment
-  });
-  
-  const [hasAttachment, setHasAttachment] = useState(!!notice?.attachment);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [varOcg, setVarOcg] = useState<'idle' | 'saving' | 'error'>('idle');
-  const [note, setNote] = useState<{ type: 'success' | 'error', message: string } | null>(null);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    
-    if (name === 'semester') {
-      const semesterValue = value ? parseInt(value, 10) : undefined;
-      setFormData(prev => ({ ...prev, semester: semesterValue }));
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
-    }
-    
-    // Clear any notification when user makes changes
-    if (note) {
-      setNote(null);
-    }
-  };
-
-  const handleToggleAttachment = () => {
-    setHasAttachment(prev => !prev);
-    if (!hasAttachment) {
-      setFormData(prev => ({
-        ...prev,
-        attachment: {
-          name: '',
-          url: '',
-          type: 'pdf'
-        }
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        attachment: undefined
-      }));
-    }
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Get file type from the file extension
-      const fileType = file.name.split('.').pop()?.toLowerCase() || 'pdf';
-      
-      console.log('File selected:', file);
-      console.log('File type:', fileType);
-      
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        console.log('File read complete, data URL length:', result.length);
-        
-        // Set attachment data in the form
-        setFormData(prev => ({
-          ...prev,
-          attachment: {
-            name: file.name,
-            url: result, // This will be a data URL (base64 encoded)
-            type: fileType
-          }
-        }));
-      };
-      
-      // Read file as data URL (base64 encoded)
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleRemoveAttachment = () => {
-    setFormData(prev => ({
-      ...prev,
-      attachment: undefined
-    }));
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    // Creating a new object with the proper field names to match the Notice type
-    const noticeData: Omit<Notice, 'id'> = {
-      title: formData.title,
-      description: formData.description,
-      course_code: formData.course_code,
-      semester: formData.semester,
-      attachment: formData.attachment,
-      date: notice?.date || new Date().toISOString()
-    };
-    
-    setVarOcg('saving');
-    
-    try {
-      const result = await onSave(noticeData);
-      setVarOcg('idle');
-      setNote({
-        type: result.success ? 'success' : 'error',
-        message: result.message
-      });
-      
-      // Only close modal automatically on success after a short delay
-      if (result.success) {
-        setTimeout(() => {
-          onClose();
-        }, 2000);
-      }
-    } catch (error) {
-      setVarOcg('error');
-      setNote({
-        type: 'error',
-        message: error instanceof Error ? error.message : 'An error occurred while saving the notice'
-      });
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 transition-opacity" onClick={onClose}>
-          <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
-        </div>
-
-        <span className="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full">
-          <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-            <h3 className="text-lg font-medium leading-6 text-gray-900 mb-4">
-              {isEditing ? 'Edit Notice' : 'Add New Notice'}
-            </h3>
-            
-            {note && (
-              <div className={`mb-4 p-4 rounded-md flex items-center ${
-                note.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
-              }`}>
-                {note.type === 'success' ? (
-                  <CheckCircle className="h-5 w-5 mr-2 text-green-500" />
-                ) : (
-                  <AlertCircle className="h-5 w-5 mr-2 text-red-500" />
-                )}
-                <span>{note.message}</span>
-              </div>
-            )}
-            
-            <form onSubmit={handleSubmit}>
-              <div className="mb-4">
-                <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-                  Title
-                </label>
-                <input
-                  type="text"
-                  id="title"
-                  name="title"
-                  value={formData.title}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  disabled={varOcg === 'saving'}
-                />
-              </div>
-              
-              <div className="mb-4">
-                <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-                  Description
-                </label>
-                <textarea
-                  id="description"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                  rows={5}
-                  required
-                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  disabled={varOcg === 'saving'}
-                />
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label htmlFor="course_code" className="block text-sm font-medium text-gray-700 mb-1">
-                    Course
-                  </label>
-                  <select
-                    id="course_code"
-                    name="course_code"
-                    value={formData.course_code}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    disabled={varOcg === 'saving'}
-                  >
-                    {courses.map(course => (
-                      <option key={course.id} value={String(course.id)}>
-                        {course.code ? `${course.code} - ${course.name}` : course.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div>
-                  <label htmlFor="semester" className="block text-sm font-medium text-gray-700 mb-1">
-                    Semester (Optional)
-                  </label>
-                  <select
-                    id="semester"
-                    name="semester"
-                    value={formData.semester || ''}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    disabled={varOcg === 'saving'}
-                  >
-                    <option value="">All Semesters</option>
-                    {[1, 2, 3, 4, 5, 6, 7, 8].map(num => (
-                      <option key={num} value={num}>Semester {num}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              
-              <div className="mb-4">
-                <div className="flex items-center">
-                  <input
-                    id="hasAttachment"
-                    type="checkbox"
-                    checked={hasAttachment}
-                    onChange={handleToggleAttachment}
-                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                    disabled={varOcg === 'saving'}
-                  />
-                  <label htmlFor="hasAttachment" className="ml-2 block text-sm text-gray-700">
-                    Add Attachment
-                  </label>
-                </div>
-              </div>
-              
-              {hasAttachment && (
-                <div className="mb-4 p-4 bg-gray-50 rounded-md">
-                  <div className="mb-3">
-                    <label htmlFor="attachmentFile" className="block text-sm font-medium text-gray-700 mb-2">
-                      Upload File
-                    </label>
-                    
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="file"
-                        id="attachmentFile"
-                        ref={fileInputRef}
-                        onChange={handleFileUpload}
-                        className="hidden"
-                        accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png"
-                        disabled={varOcg === 'saving'}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                        disabled={varOcg === 'saving'}
-                      >
-                        <Upload className="h-4 w-4 mr-2 inline" />
-                        Browse Files
-                      </button>
-                      
-                      <span className="text-xs text-gray-500">
-                        (PDF, Word, Excel, PowerPoint, Images)
-                      </span>
-                    </div>
-                    
-                    {formData.attachment?.name ? (
-                      <div className="mt-3 flex items-center p-3 bg-blue-50 rounded-md border border-blue-100">
-                        <FileText className="h-5 w-5 text-blue-500 mr-2" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-blue-700 truncate">
-                            {formData.attachment.name}
-                          </p>
-                          <p className="text-xs text-blue-500">
-                            File selected
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={handleRemoveAttachment}
-                          className="ml-2 bg-blue-100 text-blue-600 p-1 rounded-full hover:bg-blue-200"
-                          disabled={varOcg === 'saving'}
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="mt-2 text-sm text-gray-500">
-                        No file selected. Supported formats: PDF, Word, Excel, PowerPoint, and image files.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-              
-              <div className="flex justify-end gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  disabled={varOcg === 'saving'}
-                  className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={varOcg === 'saving'}
-                  className="flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                >
-                  {varOcg === 'saving' && (
-                    <span className="mr-2 h-4 w-4 animate-spin rounded-full border-t-2 border-white" />
-                  )}
-                  {varOcg === 'saving'
-                    ? 'Saving…'
-                    : isEditing
-                    ? 'Update'
-                    : 'Save'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 export default NoticesManager;

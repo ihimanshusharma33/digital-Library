@@ -44,6 +44,7 @@ export interface ResourceBase {
   course_code: string;
   semester: number;
   file_type: string;
+  
 }
 
 export interface Resume extends ResourceBase {
@@ -56,8 +57,8 @@ export interface Note extends ResourceBase {
 
 export interface QuestionPaper extends ResourceBase {
   type: 'question_paper';
-  exam_type?: string; // mid-term, final, etc.
-  year?: string;
+  exam_type: string; // mid-term, final, etc.
+  year: number;
 }
 
 export type ResourceType = 'resume' | 'note' | 'question_paper';
@@ -91,6 +92,9 @@ export interface Resource {
   exam_type?: string; // Optional exam type field for question papers
   year?: string; // Optional year field for question papers
   available_quantity?: number; // Optional available quantity field for textbooks
+  course_code?: string; // Optional course code field for textbooks
+  file_path?: string; // Optional file path field for textbooks
+  created_at?: string; // Optional created at field for textbooks
 }
 
 export interface Notice {
@@ -99,7 +103,11 @@ export interface Notice {
   description: string;
   date: string;
   course_code: string;
-  semester?: number; // Making semester optional for notices
+  semester?: number; 
+  is_active: boolean;
+  content?: string;
+  publish_date: string;
+  end_date: string;
   attachment?: {
     name: string;
     url: string;
@@ -108,6 +116,7 @@ export interface Notice {
   priority?: 'low' | 'medium' | 'high';
   expiry_date?: string;
   created_by?: string;
+  created_at?: Date;
 }
 
 // Fixed to match the actual category values used in Resource interface
@@ -118,7 +127,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'student' | 'admin' | 'librarian' | 'faculty';
+  role: 'student' | 'admin' | 'staff' ;
   createdAt: string;
   profile_image?: string;
   department?: string;
@@ -149,12 +158,13 @@ export interface Book {
   category: string;
   coverImage: string;
   availableCopies: number;
-  courseCode?: string; // Optional course code for filtering books
-  semester?: number; // Optional semester for filtering books
+  courseCode?: string;
+  semester?: number;
   publisher?: string;
   publication_year?: number;
   edition?: string;
-  location?: string; // Physical location in the library
+  location?: string;
+  is_available: boolean;
   total_copies?: number;
 }
 
@@ -164,21 +174,6 @@ export interface AuthState {
   isLoading: boolean;
   error: string | null;
   token?: string;
-}
-
-export interface IssuedBook {
-  id: string;
-  bookId: string;
-  book: Book;
-  userId: string;
-  user?: User;
-  issuedDate: string;
-  dueDate: string;
-  returnDate?: string;
-  status: 'issued' | 'returned' | 'overdue';
-  fine?: number;
-  renewed_count?: number;
-  issued_by?: string;
 }
 
 export interface LibraryCardStatus {
@@ -217,7 +212,7 @@ export interface ApiResponse<T> {
   data?: T;
   error?: string;
   message?: string;
-  status_code?: number;
+  status?: number;
 }
 
 export interface PaginatedResponse<T> {
@@ -260,7 +255,7 @@ export interface ApiQuestionPaper {
   id: number;
   title: string;
   subject: string;
-  year: number;
+  year?: number;
   exam_type: string;
   file_path: string;
   course_code: string;
@@ -270,13 +265,35 @@ export interface ApiQuestionPaper {
   updated_at: string;
 }
 
+export interface StudentFormData {
+  name: string;
+  email: string;
+  phone_number: string;
+  department: string;
+  university_roll_number: string;
+  course_code: string;
+}
+
+
+export interface CoursesResponse {
+  id: number;
+  course_code: string;
+  course_name: string;
+  description: string;
+  total_semesters: number;
+  department: string;
+  is_active: boolean;
+}
 export interface ApiResourcesResponse {
   ebooks: ApiEbook[];
   notes: ApiNote[];
   question_papers: ApiQuestionPaper[];
 }
 
-// Resource type for UI display (normalized from API types)
+
+
+
+
 export interface UnifiedResource {
   id: number;
   title: string;
@@ -294,7 +311,8 @@ export interface UnifiedResource {
   examType?: string;
 }
 
-// Filter and search types
+
+// filter interfaces
 export interface ResourceFilter {
   course_code?: string;
   semester?: number;
@@ -312,4 +330,222 @@ export interface BookFilter {
   available_only?: boolean;
   page?: number;
   limit?: number;
+}
+
+export interface ApiResponse<T = unknown> {
+  success: boolean;
+  message?: string;
+  data?: T;
+}
+
+// For resources with status field instead of success
+export interface ResourceApiResponse<T = unknown> {
+  status: boolean;
+  message: string;
+  data: T;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  token: string;
+  user: {
+    id: number;
+    name: string;
+    email: string;
+    role: 'student' | 'admin';
+  };
+}
+
+export interface CourseResponse {
+  status: boolean;
+  message: string;
+  data: Course[];
+}
+
+// Ebook resource type
+export interface Ebook {
+  id: number;
+  title: string;
+  description: string;
+  author: string;
+  file_path: string;
+  course_code: string;
+  semester: number;
+  is_verified: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// Note resource type
+export interface Note {
+  id: number;
+  title: string;
+  description: string;
+  subject: string;
+  author: string;
+  file_path: string;
+  course_code: string;
+  semester: number;
+  is_verified: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// Question paper resource type
+export interface QuestionPaper {
+  id: number;
+  title: string;
+  subject: string;
+  year: number;
+  exam_type: string;
+  file_path: string;
+  course_code: string;
+  semester: number;
+  description: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Combined resources response
+export interface ResourcesResponse {
+  ebooks: Ebook[];
+  notes: Note[];
+  question_papers: QuestionPaper[];
+}
+
+export interface BookFilterParams {
+  course_code?: string;
+  semester?: number;
+  category?: string;
+  search?: string;
+}
+
+export interface ResourceUploadData {
+  title: string;
+  description: string;
+  author: string;
+  course_code: string;
+  semester: number;
+  subject: string;
+  file?: File;
+}
+export interface Student{
+  id: string;
+  name: string;
+  email: string;
+  phone_number: string;
+  department: string;
+  university_roll_number: number;
+  course_code: string;
+  library_id: string;
+  semester: number;
+}
+
+export interface ToastState {
+  type: 'success' | 'error';
+  message: string;
+}
+
+export interface UserSearchResponse {
+  status: boolean;
+  message: string;
+  data: Student;
+}
+
+export interface IssuedBook {
+  id: number | string;
+  book_id: number | string;
+  user_id: number | string;
+  issue_date: string;
+  due_date: string;
+  return_date: string | null;
+  fine_amount: number;
+  is_returned: boolean;
+  remarks: string | null;
+  issued_by: number | string;
+  book?: Book;
+  user?: Student;
+  issued_by_user?: User;
+}
+
+export interface DashboardStatistics {
+  users: {
+    total: number;
+    verified: number;
+    students: number;
+  };
+  resources: {
+    total: number;
+    e_books: number;
+    notes: number;
+    question_papers: number;
+  };
+  books: {
+    total: number;
+    physical: number;
+  };
+  courses: {
+    total: number;
+  };
+  notices: {
+    total: number;
+    active: number;
+  };
+}
+
+export interface StatCardProps {
+  title: string;
+  value: number | string;
+  icon: JSX.Element;
+  bgColor: string;
+  textColor: string;
+  isLoading?: boolean;
+}
+export interface ReturnBookModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSelectIssuedBook?: (issuedBook: IssuedBook) => void;
+  issuedBook: IssuedBook;
+}
+
+
+export interface GenerateNocModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+
+// Define the API response structure
+export interface UserIssuedBooksResponse {
+  user: {
+    id: number;
+    name: string;
+    library_id: string;
+    email: string;
+  };
+  total_fine: number;
+  issued_books: Array<{
+    id: number;
+    book_id: number;
+    book_title: string;
+    book_author: string;
+    book_isbn?: string;
+    issue_date: string;
+    due_date: string;
+    return_date: string | null;
+    is_returned: boolean;
+    fine_amount: string;
+    status: string;
+    remarks: string | null;
+  }>;
+}
+
+export interface SemesterSelectionProps {
+  course: Course;
+  onBack?: () => void;
+  onSemesterSelect?: (semester: number) => void;
 }

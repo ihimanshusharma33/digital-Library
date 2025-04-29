@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Book, Calendar, Clock, AlertTriangle, CheckCircle, CreditCard } from 'lucide-react';
 import { useAuth } from '../../utils/AuthContext';
-import { getIssuedBooks, getLibraryCardStatus } from '../../utils/mockData';
 import { IssuedBook, LibraryCardStatus } from '../../types';
 
 const StudentDashboard: React.FC = () => {
