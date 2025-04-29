@@ -310,13 +310,6 @@ const ResourceList: React.FC<ResourceListProps> = ({
                                                 )}
                                                 <div className="mt-4 flex flex-wrap gap-3">
                                                     <button
-                                                        onClick={() => handleResourceAction(resource, 'view')}
-                                                        className="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 focus:outline-none"
-                                                    >
-                                                        <Eye className="mr-1.5 h-4 w-4" />
-                                                        View
-                                                    </button>
-                                                    <button
                                                         onClick={() => handleResourceAction(resource, 'download')}
                                                         className="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md bg-green-50 text-green-700 hover:bg-green-100 focus:outline-none"
                                                     >

@@ -1,6 +1,6 @@
 import React from 'react';
 import { SemesterSelectionProps } from '../types';
-import { BookOpen,  ArrowLeft } from 'lucide-react';
+import { BookOpen, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Header from './Layout/Header';
 import ResourceList from './ResourceList';
@@ -11,7 +11,7 @@ const SemesterSelection: React.FC<SemesterSelectionProps> = ({
 }) => {
   const navigate = useNavigate();
   const semesters = Array.from({ length: course.total_semesters }, (_, i) => i + 1);
-  const [semesterSelected,setSemesterSelected] = React.useState<number>(0);
+  const [semesterSelected, setSemesterSelected] = React.useState<number>(0);
   const [showResources, setShowResources] = React.useState(false);
   const handleSemesterSelect = (semester: number) => {
     setSemesterSelected(semester);
@@ -19,11 +19,11 @@ const SemesterSelection: React.FC<SemesterSelectionProps> = ({
   }
 
 
-if(showResources){
-  return (
-    <ResourceList  semester={semesterSelected} Course={course}  onclose={() => setShowResources(false)}/>
-  )
-}
+  if (showResources) {
+    return (
+      <ResourceList semester={semesterSelected} Course={course} onclose={() => setShowResources(false)} />
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
