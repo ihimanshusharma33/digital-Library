@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Book, Upload, FileText, AlertCircle, Download, Trash2, Plus, BookOpen, FileQuestion } from 'lucide-react';
+import { Book, Upload, FileText, AlertCircle, Download, Plus, BookOpen, FileQuestion } from 'lucide-react';
 import { useAuth } from '../../utils/AuthContext';
 import { api } from '../../utils/apiService';
 import ResourceUploadModal from './ResourceUploadModal';

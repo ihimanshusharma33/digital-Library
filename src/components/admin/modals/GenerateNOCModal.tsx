@@ -75,7 +75,7 @@ const GenerateNocModal: React.FC<GenerateNocModalProps> = ({ isOpen, onClose }) 
             department: 'Not Specified',
             university_roll_number: 0,
             course_code: 'Not Specified',
-            semester: 0, // Default value for semester
+            role: 'student',
           };
           
           setSelectedStudent(studentBasic);
@@ -242,9 +242,6 @@ const fetchUserDetails = async (userId: number) => {
                     <p><strong>Department:</strong><br/> {selectedStudent.department}</p>
                   )}
                   
-                  {selectedStudent.semester && (
-                    <p><strong>Semester:</strong><br/> {selectedStudent.semester}</p>
-                  )}
                   
                   {selectedStudent.email && (
                     <p><strong>Email:</strong><br/> {selectedStudent.email}</p>
@@ -427,12 +424,7 @@ const fetchUserDetails = async (userId: number) => {
                                     <span className="font-medium">{selectedStudent.course_code}</span>
                                   </div>
                                 )}
-                                {selectedStudent.semester !== undefined && (
-                                  <div className="p-1 bg-blue-50 rounded">
-                                    <span className="text-gray-500">Semester:</span>{' '}
-                                    <span className="font-medium">{selectedStudent.semester}</span>
-                                  </div>
-                                )}
+                            
                                 {selectedStudent.department && (
                                   <div className="p-1 bg-blue-50 rounded col-span-2">
                                     <span className="text-gray-500">Department:</span>{' '}

@@ -127,6 +127,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       // Clear storage
       localStorage.removeItem('user');
+      localStorage.removeItem('role');
+      localStorage.removeItem('name');
       localStorage.removeItem('auth_token');
       
       // Don't use window.location.href here as it can cause loops

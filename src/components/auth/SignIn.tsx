@@ -1,10 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { BookOpen, Loader } from 'lucide-react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import React, {  useState } from 'react';
+import {  Loader } from 'lucide-react';
+import {  useNavigate } from 'react-router-dom';
 import { useAuth } from '../../utils/AuthContext';
 import { api } from '../../utils/apiService';
-import { User } from '../../types';
-import { logout } from '../../utils/AuthContext';
+import { LoginResponse, User } from '../../types';
 
 const SignIn: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -30,7 +29,7 @@ const SignIn: React.FC = () => {
 
     try {
       // Call the API to authenticate user
-      const response = await api.post<{ data: { status: boolean; token: string; user: { id: number; name: string; email: string; role?: string; }; message?: string; } }>('/login', { email, password });
+      const response = await api.post<LoginResponse>('/login');
       // Check for successful response
       if (response && response.status) {
         // Extract token and user data from response

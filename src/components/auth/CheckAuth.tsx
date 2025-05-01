@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../utils/AuthContext';
 
@@ -24,18 +24,12 @@ const CheckAuth: React.FC<CheckAuthProps> = ({
   redirectTo = '/signin', 
   authPage = false 
 }) => {
-  const { isAuthenticated, user, token, loading } = useAuth();
+  const { isAuthenticated, user, token } = useAuth();
   const [isChecking, setIsChecking] = useState(true);
 
-  useEffect(() => {
-    // Only complete the check once the auth context has finished loading
-    if (!loading) {
-      setIsChecking(false);
-    }
-  }, [loading]);
 
   // Show loading spinner while checking authentication
-  if (isChecking || loading) {
+  if (isChecking) {
     return (
       <div className="flex justify-center items-center h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
