@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../utils/AuthContext';
 
@@ -27,6 +27,16 @@ const CheckAuth: React.FC<CheckAuthProps> = ({
   const { isAuthenticated, user, token } = useAuth();
   const [isChecking, setIsChecking] = useState(true);
 
+  // Use useEffect to set isChecking to false after component mounts
+  useEffect(() => {
+    // Short timeout to ensure auth context is fully loaded
+    const timer = setTimeout(() => {
+      setIsChecking(false);
+    }, 100);
+    
+    // Clean up timeout
+    return () => clearTimeout(timer);
+  }, []);
 
   // Show loading spinner while checking authentication
   if (isChecking) {
