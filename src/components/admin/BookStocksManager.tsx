@@ -280,7 +280,8 @@ const BookStocksManager: React.FC = () => {
       publication_year: formData.publication_year,
       edition: formData.edition,
       location: formData.location,
-      total_copies: formData.total_copies
+      total_copies: formData.total_copies,
+      is_available: formData.availableCopies > 0 // Set based on availableCopies
     };
 
     if (currentBook) {

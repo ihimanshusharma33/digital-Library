@@ -9,7 +9,6 @@ export interface Course {
   is_active: boolean;
   created_at: string;
   updated_at: string;
-  // Maintain backward compatibility with existing code
   name?: string;
   code?: string;
 }
@@ -44,7 +43,7 @@ export interface ResourceBase {
   course_code: string;
   semester: number;
   file_type: string;
-  
+
 }
 
 export interface Resume extends ResourceBase {
@@ -103,7 +102,7 @@ export interface Notice {
   description: string;
   date: string;
   course_code: string;
-  semester?: number; 
+  semester?: number;
   is_active: boolean;
   content?: string;
   publish_date: string;
@@ -127,7 +126,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'student' | 'admin' | 'staff' ;
+  role: 'student' | 'admin' | 'staff';
   createdAt: string;
   profile_image?: string;
   department?: string;
@@ -364,12 +363,14 @@ export interface LoginRequest {
 }
 
 export interface LoginResponse {
+  status: boolean;
   token: string;
+  message: string;
   user: {
     id: number;
     name: string;
     email: string;
-    role: 'student' | 'admin';
+    role?: string;
   };
 }
 
@@ -446,7 +447,7 @@ export interface ResourceUploadData {
   subject: string;
   file?: File;
 }
-export interface Student{
+export interface Student {
   id: string;
   name: string;
   email: string;
@@ -562,3 +563,41 @@ export interface SemesterSelectionProps {
   onBack?: () => void;
   onSemesterSelect?: (semester: number) => void;
 }
+
+// Add these types to your existing types file
+
+export interface IssuedBookDetails {
+  id: number;
+  book_id: number;
+  book_title: string;
+  book_author: string;
+  book_isbn: string;
+  issue_date: string;
+  due_date: string;
+  return_date: string | null;
+  is_returned: boolean;
+  fine_amount: number;
+  status: string;
+  remarks: string | null;
+  cover_image?: string; // Adding this in case you need it for UI
+}
+
+export interface UserBriefInfo {
+  id: number;
+  name: string;
+  library_id: string;
+  email: string;
+}
+
+export interface IssuedBooksResponse {
+  status: boolean;
+  message: string;
+  data: {
+    user: UserBriefInfo;
+    total_fine: number;
+    issued_books: IssuedBookDetails[];
+  };
+}
+
+
+

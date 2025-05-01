@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   BookOpen,
   User,
@@ -6,20 +6,19 @@ import {
   X,
   FileText,
   BookMarked,
-  BookText
+  BookText,
 } from 'lucide-react';
 import { useAuth } from '../../utils/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import StudentDashboard from './StudentDashboard';
 import IssuedBooksComponent from './IssuedBooks';
+import ResourceDetail from './ResourceList'; 
 import StudentProfile from './StudentProfile';
-import ResourcesComponent from './ResourcesComponent';
-
 // Component references
 const Dashboard = () => <StudentDashboard/>;
 const IssuedBooks = () => <IssuedBooksComponent />;
 const Profile = () => <StudentProfile/>;
-const Resources = () => <ResourcesComponent />;
+const Resources = () => <ResourceDetail/>; 
 
 
 const StudentLayout: React.FC = () => {
@@ -71,10 +70,10 @@ const StudentLayout: React.FC = () => {
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar (Desktop) */}
       <div className="hidden md:flex md:flex-col md:w-64 md:fixed md:inset-y-0 bg-white shadow-md z-20">
-        <div className="flex items-center h-16 px-4 border-b border-gray-200">
+        <Link to={'/'} className="flex items-center h-16 px-4 border-b border-gray-200">
           <img src='https://res.cloudinary.com/dcliahekv/image/upload/v1745924858/logo_f6ikuk.png' className='w-16 h-16' alt='logo'/>
           <span className="ml-2 text-xl font-semibold">IGU Library</span>
-        </div>
+        </Link>
         <div className="flex flex-col justify-between flex-1 overflow-y-auto">
           <nav className="flex-1 px-2 py-4 space-y-1">
             {renderNavButtons()}

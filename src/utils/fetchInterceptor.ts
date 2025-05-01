@@ -265,30 +265,36 @@ clearInterceptors('error');
 
 addErrorHandler(async (error, url, config) => {
   // Check if this is a 401 error
-  if (error.status === 401 || (error.response && error.response.status === 401)) {
-    console.error('Authentication error detected in fetch interceptor');
+  if (error.status === 401 || 
+      (error.response && error.response.status === 401) ||
+      (error instanceof Response && error.status === 401)) {
     
-    // Instead of immediately redirecting, schedule the logout
-    setTimeout(() => {
-      try {
-        logout();
-      } catch (logoutError) {
-        console.error('Error during logout:', logoutError);
-        // Fallback logout
-        localStorage.removeItem('user');
-        localStorage.removeItem('auth_token');
-        
-        // Delay the redirect slightly to allow the current request to complete
-        setTimeout(() => {
-          window.location.href = '/signin';
-        }, 100);
-      }
-    }, 300); // Small delay to let the current request finish processing
+    console.log('Authentication error detected in fetch interceptor');
     
-    // Return a structured response instead of throwing
+    // Clear tokens and auth data before redirecting
+    try {
+      // Clear all auth data
+      localStorage.removeItem('user');
+      localStorage.removeItem('auth_token');
+      sessionStorage.clear();
+      
+      // Don't redirect automatically - wait for AuthContext to handle it
+      console.log('Auth tokens cleared due to 401 error');
+      
+      // Signal to AuthContext that a force logout happened
+      localStorage.setItem('force_logout', 'true');
+      
+      // Force refresh AuthContext by dispatching a custom event
+      window.dispatchEvent(new CustomEvent('auth:force-logout'));
+    } catch (clearError) {
+      console.error('Error clearing auth data:', clearError);
+    }
+    
+    // Return a structured response for better error handling in components
     return new Response(JSON.stringify({
       status: false,
-      message: 'Authentication failed. Please log in again.',
+      message: 'Your session has expired. Please log in again.',
+      error: 'unauthorized',
       data: null
     }), {
       status: 401,
@@ -298,7 +304,7 @@ addErrorHandler(async (error, url, config) => {
     });
   }
   
-  // Re-throw other errors
+  // For other error types, just rethrow the error
   throw error;
 });
 

@@ -72,6 +72,39 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
+  // Add this to the AuthProvider component
+  useEffect(() => {
+    // Check if there was a force logout
+    const checkForceLogout = () => {
+      const wasForceLoggedOut = localStorage.getItem('force_logout') === 'true';
+      if (wasForceLoggedOut) {
+        // Clear the flag
+        localStorage.removeItem('force_logout');
+        // Update auth state
+        setUser(null);
+        setIsAuthenticated(false);
+        // Redirect to signin page
+        window.location.href = '/signin';
+      }
+    };
+
+    // Run once on mount
+    checkForceLogout();
+
+    // Listen for force logout events
+    const handleForceLogout = () => {
+      setUser(null);
+      setIsAuthenticated(false);
+      // Don't redirect here - wait for the next render cycle
+    };
+
+    window.addEventListener('auth:force-logout', handleForceLogout);
+    
+    return () => {
+      window.removeEventListener('auth:force-logout', handleForceLogout);
+    };
+  }, []);
+
   // Login method
   const login = (user: User, token: string) => {
     setUser(user);
@@ -83,15 +116,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     localStorage.setItem('auth_token', token);
   };
 
-  const logout = () => {
-    setUser(null);
-    setToken(null);
-    setIsAuthenticated(false);
-    
-    // Clear from localStorage
-    localStorage.removeItem('user');
-    localStorage.removeItem('auth_token');
-    navigate('/signin');
+  const logout = async () => {
+    try {
+      // Call logout API if needed
+      // await api.post('/auth/logout');
+      
+      // Clear state
+      setUser(null);
+      setIsAuthenticated(false);
+      
+      // Clear storage
+      localStorage.removeItem('user');
+      localStorage.removeItem('auth_token');
+      
+      // Don't use window.location.href here as it can cause loops
+      // Use history from react-router instead
+      
+      return true;
+    } catch (error) {
+      console.error('Logout error:', error);
+      return false;
+    }
   };
 
   return (

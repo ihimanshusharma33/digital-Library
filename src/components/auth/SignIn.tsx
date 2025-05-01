@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BookOpen, Loader } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../utils/AuthContext';
 import { api } from '../../utils/apiService';
 import { User } from '../../types';
+import { logout } from '../../utils/AuthContext';
 
 const SignIn: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -13,6 +14,7 @@ const SignIn: React.FC = () => {
 
   const navigate = useNavigate();
   const { login } = useAuth();
+
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();

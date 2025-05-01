@@ -1,5 +1,5 @@
 import React from 'react';
-import { Download, AlertCircle, Clock, BookOpen, FileText, FileQuestion } from 'lucide-react';
+import {  AlertCircle, Clock, BookOpen, FileText, FileQuestion } from 'lucide-react';
 
 interface Resource {
   id: string;
