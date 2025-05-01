@@ -28,101 +28,152 @@ const ResourceList: React.FC<ResourceListProps> = ({
     const [notes, setNotes] = useState<Resource[]>([]);
     const [questions, setQuestions] = useState<Resource[]>([]);
 
-    // Fetch resources on component mount and when semester/course changes
+    // Fetch resources based on active tab
     useEffect(() => {
         const fetchResources = async () => {
             try {
                 setLoading(true);
                 setError(null);
 
-                const url = `${getApiBaseUrl()}${API_ENDPOINTS.RESOURCES}?course_code=${Course.course_code}&semester=${semester}`;
+                // Determine which resource type to fetch based on active tab
+                let resourceType = '';
+                switch (activeTab) {
+                    case 'ebooks':
+                        resourceType = 'ebooks';
+                        break;
+                    case 'notes':
+                        resourceType = 'notes';
+                        break;
+                    case 'questions':
+                        resourceType = 'question_papers';
+                        break;
+                    default:
+                        resourceType = 'ebooks';
+                }
+
+                const url = `${getApiBaseUrl()}${API_ENDPOINTS.RESOURCES}?course_code=${Course.course_code}&semester=${semester}&type=${resourceType}`;
                 const response = await fetch(url);
 
                 if (!response.ok) {
-                    throw new Error('Failed to fetch resources');
+                    throw new Error(`Failed to fetch ${activeTab}`);
                 }
 
                 const data = await response.json();
 
                 if (data && data.status && data.data) {
-                    // Process e-books
-                    if (data.data.ebooks) {
-                        const ebooksData = data.data.ebooks.map((ebook: any) => ({
-                            id: ebook.id.toString(),
-                            title: ebook.title,
-                            author: ebook.author || '',
-                            type: 'ebook',
-                            courseCode: ebook.course_code,
-                            semester: ebook.semester,
-                            subject: ebook.subject || '',
-                            description: ebook.description || '',
-                            fileUrl: ebook.file_url,
-                            thumbnail: ebook.thumbnail || null,
-                            createdAt: ebook.created_at
-                        }));
-                        setEbooks(ebooksData);
-                    } else {
-                        setEbooks([]);
-                    }
+                    // Process the fetched resources based on the active tab
+                    switch (activeTab) {
+                        case 'ebooks':
+                            if (data.data.ebooks) {
+                                const ebooksData = data.data.ebooks.map((ebook: any) => ({
+                                    id: ebook.id.toString(),
+                                    title: ebook.title,
+                                    author: ebook.author || '',
+                                    type: 'ebook',
+                                    courseCode: ebook.course_code,
+                                    semester: ebook.semester,
+                                    subject: ebook.subject || '',
+                                    description: ebook.description || '',
+                                    fileUrl: ebook.file_path,
+                                    file_path: ebook.file_path,
+                                    thumbnail: ebook.thumbnail || null,
+                                    createdAt: ebook.created_at,
+                                    created_at: ebook.created_at
+                                }));
+                                setEbooks(ebooksData);
+                            } else {
+                                setEbooks([]);
+                                setError('No e-books found for this semester');
+                            }
+                            break;
 
-                    // Process notes
-                    if (data.data.notes) {
-                        const notesData = data.data.notes.map((note: any) => ({
-                            id: note.id.toString(),
-                            title: note.title,
-                            author: note.author || '',
-                            type: 'note',
-                            courseCode: note.course_code,
-                            semester: note.semester,
-                            subject: note.subject || '',
-                            description: note.description || '',
-                            fileUrl: note.file_url,
-                            thumbnail: note.thumbnail || null,
-                            createdAt: note.created_at
-                        }));
-                        setNotes(notesData);
-                    } else {
-                        setNotes([]);
-                    }
+                        case 'notes':
+                            if (data.data.notes) {
+                                const notesData = data.data.notes.map((note: any) => ({
+                                    id: note.id.toString(),
+                                    title: note.title,
+                                    author: note.author || '',
+                                    type: 'note',
+                                    courseCode: note.course_code,
+                                    semester: note.semester,
+                                    subject: note.subject || '',
+                                    description: note.description || '',
+                                    fileUrl: note.file_path,
+                                    file_path: note.file_path,
+                                    thumbnail: note.thumbnail || null,
+                                    createdAt: note.created_at,
+                                    created_at: note.created_at
+                                }));
+                                setNotes(notesData);
+                            } else {
+                                setNotes([]);
+                                setError('No notes found for this semester');
+                            }
+                            break;
 
-                    // Process question papers
-                    if (data.data.oldquestion) {
-                        const questionsData = data.data.oldquestion.map((question: any) => ({
-                            id: question.id.toString(),
-                            title: question.title,
-                            author: question.author || '',
-                            type: 'question',
-                            courseCode: question.course_code,
-                            semester: question.semester,
-                            subject: question.subject || '',
-                            description: question.description || '',
-                            fileUrl: question.file_url,
-                            thumbnail: question.thumbnail || null,
-                            createdAt: question.created_at
-                        }));
-                        setQuestions(questionsData);
-                    } else {
-                        setQuestions([]);
+                        case 'questions':
+                            if (data.data.oldquestion || data.data.question_papers) {
+                                const questions_data = data.data.oldquestion || data.data.question_papers;
+                                const questionsData = questions_data.map((question: any) => ({
+                                    id: question.id.toString(),
+                                    title: question.title,
+                                    author: question.author || '',
+                                    type: 'question',
+                                    courseCode: question.course_code,
+                                    semester: question.semester,
+                                    subject: question.subject || '',
+                                    description: question.description || '',
+                                    fileUrl: question.file_path,
+                                    file_path: question.file_path,
+                                    thumbnail: question.thumbnail || null,
+                                    createdAt: question.created_at,
+                                    created_at: question.created_at
+                                }));
+                                setQuestions(questionsData);
+                            } else {
+                                setQuestions([]);
+                                setError('No question papers found for this semester');
+                            }
+                            break;
                     }
                 } else {
-                    setEbooks([]);
-                    setNotes([]);
-                    setQuestions([]);
-                    setError('No resources found for this semester');
+                    // Clear current tab data and set error
+                    switch (activeTab) {
+                        case 'ebooks':
+                            setEbooks([]);
+                            break;
+                        case 'notes':
+                            setNotes([]);
+                            break;
+                        case 'questions':
+                            setQuestions([]);
+                            break;
+                    }
+                    setError(`No ${activeTab} found for this semester`);
                 }
             } catch (err) {
-                console.error('Error fetching resources:', err);
-                setError('Failed to load resources. Please try again later.');
-                setEbooks([]);
-                setNotes([]);
-                setQuestions([]);
+                console.error(`Error fetching ${activeTab}:`, err);
+                setError(`Failed to load ${activeTab}. Please try again later.`);
+                
+                // Clear current tab data
+                switch (activeTab) {
+                    case 'ebooks':
+                        setEbooks([]);
+                        break;
+                    case 'notes':
+                        setNotes([]);
+                        break;
+                    case 'questions':
+                        setQuestions([]);
+                        break;
+                }
             } finally {
                 setLoading(false);
             }
         };
 
         fetchResources();
-    }, [Course.course_code, semester]);
+    }, [Course.course_code, semester, activeTab]); // Added activeTab as dependency
 
     // Format date for display
     const formatDate = (dateString: string) => {
@@ -149,6 +200,37 @@ const ResourceList: React.FC<ResourceListProps> = ({
             window.open(resource.file_path, '_blank');
         }
     };
+        const handleDownload = async({ filePath }: { filePath: string }) => {
+            try {
+                const response = await fetch(filePath, {
+                  mode: 'cors',
+                });
+            
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+            
+                const link = document.createElement('a');
+                link.href = url;
+                // generate a real filename from the URL
+                const filename = filePath.split('/').pop();
+                // check extension of file using regex
+                const extension = filename?.match(/\.(\w+)$/)?.[1];
+                if (extension) {
+                    link.href = url;
+                    link.download = filename;
+                } else {
+                    link.href = url;
+                    link.download = 'filename.pdf'; 
+                }
+                document.body.appendChild(link);
+                link.click();
+            
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+              } catch (error) {
+                console.error('Download failed:', error);
+              }
+        };
 
     // Determine which resources to show based on active tab
     const getActiveResources = () => {
@@ -310,21 +392,13 @@ const ResourceList: React.FC<ResourceListProps> = ({
                                                 )}
                                                 <div className="mt-4 flex flex-wrap gap-3">
                                                     <button
-                                                        onClick={() => handleResourceAction(resource, 'download')}
+                                                    onClick={()=>handleDownload({filePath: resource.file_path || ''})}
                                                         className="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md bg-green-50 text-green-700 hover:bg-green-100 focus:outline-none"
                                                     >
                                                         <Download className="mr-1.5 h-4 w-4" />
                                                         Download
                                                     </button>
-                                                    <a
-                                                        href={resource.file_path}
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                        className="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 focus:outline-none"
-                                                    >
-                                                        <ExternalLink className="mr-1.5 h-4 w-4" />
-                                                        Open in New Tab
-                                                    </a>
+                                                   
                                                 </div>
                                             </div>
                                         </div>

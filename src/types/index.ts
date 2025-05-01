@@ -337,6 +337,19 @@ export interface ApiResponse<T = unknown> {
   message?: string;
   data?: T;
 }
+export interface StudentApiResponse<T = unknown> {
+  success: boolean;
+  message: string;
+  name: string;
+  email: string;
+  phone_number: string;
+  department: string;
+  university_roll_number: string;
+  course_code: string;
+  library_id: string;
+  status: string;
+
+}
 
 // For resources with status field instead of success
 export interface ResourceApiResponse<T = unknown> {
@@ -442,7 +455,7 @@ export interface Student{
   university_roll_number: number;
   course_code: string;
   library_id: string;
-  semester: number;
+  role: 'student';
 }
 
 export interface ToastState {

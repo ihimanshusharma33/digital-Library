@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { BookOpen, Loader } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../utils/AuthContext';
 import { api } from '../../utils/apiService';
 import { User } from '../../types';
@@ -10,7 +10,7 @@ const SignIn: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  
+
   const navigate = useNavigate();
   const { login } = useAuth();
 
@@ -18,7 +18,7 @@ const SignIn: React.FC = () => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
-    
+
     // Simple validation
     if (!email.trim() || !password.trim()) {
       setError('Please fill in all fields');
@@ -33,7 +33,7 @@ const SignIn: React.FC = () => {
       if (response && response.status) {
         // Extract token and user data from response
         const { token, user } = response;
-        
+
         // The API response doesn't include a role field, so determine based on email or other properties
         const role = user.role;
         const userData: User = {
@@ -43,14 +43,14 @@ const SignIn: React.FC = () => {
           role: (['student', 'admin', 'staff'].includes(role || '') ? role : 'student') as 'student' | 'admin' | 'staff', // Default to 'student' if role is undefined or invalid
           createdAt: new Date().toISOString()
         };
-        
+
         // Store user data and token in auth context
         login(userData, token);
-        
+
         // Redirect based on role
         if (userData.role === 'admin' || userData.role === 'staff') {
           navigate('/admin');
-        }else {
+        } else {
           navigate('/student');
         }
       } else {
@@ -58,7 +58,7 @@ const SignIn: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Login error:', error);
-      
+
       // Handle different types of errors
       if (error.response) {
         // The request was made and the server responded with a status code
@@ -80,13 +80,15 @@ const SignIn: React.FC = () => {
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center">
       <div className="max-w-md w-full mx-auto">
         <div className="text-center mb-10">
-          <div className="flex justify-center mb-3">
-            <BookOpen className="w-12 h-12 text-blue-600" />
+          <div onClick={() => navigate('/')}
+            className="flex justify-center mb-3">
+            <img
+              src="https://res.cloudinary.com/dcliahekv/image/upload/v1745924858/logo_f6ikuk.png" alt="Logo" className="h-24 w-24" />
           </div>
           <h1 className="text-3xl font-extrabold text-gray-900">Digital Library</h1>
           <p className="text-gray-500 mt-2">Sign in to your account</p>
         </div>
-        
+
         <div className="bg-white py-8 px-6 shadow-sm rounded-lg border">
           <form onSubmit={handleSignIn}>
             {error && (
@@ -94,7 +96,7 @@ const SignIn: React.FC = () => {
                 {error}
               </div>
             )}
-            
+
             <div className="mb-4">
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
                 Email Address
@@ -109,7 +111,7 @@ const SignIn: React.FC = () => {
                 required
               />
             </div>
-            
+
             <div className="mb-6">
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
                 Password
@@ -124,7 +126,7 @@ const SignIn: React.FC = () => {
                 required
               />
             </div>
-            
+
             <button
               type="submit"
               disabled={isLoading}
@@ -138,25 +140,9 @@ const SignIn: React.FC = () => {
               ) : 'Sign in'}
             </button>
           </form>
-          
+
           <div className="mt-6 text-center">
             <p className="text-gray-600 text-sm">Don't have an account? <button onClick={() => navigate('/signup')} className="text-blue-600 hover:text-blue-800">Sign up</button></p>
-          </div>
-          
-          <div className="mt-4 border-t pt-4">
-            <p className="text-xs text-gray-500 text-center mb-2">Demo Accounts:</p>
-            <div className="grid grid-cols-2 gap-2 text-xs text-gray-500">
-              <div>
-                <p className="font-medium">Staff:</p>
-                <p>staff@library.com</p>
-                <p>password123</p>
-              </div>
-              <div>
-                <p className="font-medium">Student:</p>
-                <p>student@library.com</p>
-                <p>password123</p>
-              </div>
-            </div>
           </div>
         </div>
       </div>

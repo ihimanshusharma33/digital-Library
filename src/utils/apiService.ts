@@ -791,6 +791,11 @@ export const api = {
   getUserDetails: (userId: number | string) =>
     httpClient.get<ApiResponse<Student>>(`${API_ENDPOINTS.USERS}/${userId}`),
     
+  // New method specifically for getting user profile data
+  
+  getUserProfile: (userId: number | string) =>
+    httpClient.get<ApiResponse<Student>>(`/user/${userId}`),
+
   /* ---- Documents API (NOC, etc.) ------------------------------------ */
   
   generateNOC: (data: {

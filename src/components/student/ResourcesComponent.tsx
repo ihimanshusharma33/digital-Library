@@ -1,18 +1,18 @@
 import React from 'react';
 
+// Resource type definition
 
-const IssuedBooks: React.FC = () => {
-
+const ResourcesComponent: React.FC = () => {
 
   return (
-    <div>
+    <div >
       <div className="p-6 max-w-4xl mx-auto">
         <h1 className="text-2xl mt-2 font-bold text-gray-900 mb-6 flex items-center">
-          Issued Book
+          Dashboard Component
         </h1>
       </div>
     </div>
   );
 };
 
-export default IssuedBooks;
+export default ResourcesComponent;

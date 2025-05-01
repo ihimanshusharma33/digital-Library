@@ -1,6 +1,25 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '../types';
 import { useNavigate, Navigate } from 'react-router-dom';
+import { createRoot } from 'react-dom/client';
+
+// Create a standalone logout function that can be imported elsewhere
+let logoutFn: () => void;
+
+export const setLogoutFunction = (fn: () => void) => {
+  logoutFn = fn;
+};
+
+export const logout = () => {
+  if (logoutFn) {
+    logoutFn();
+  } else {
+    // Fallback if the logout function hasn't been set yet
+    localStorage.removeItem('user');
+    localStorage.removeItem('auth_token');
+    window.location.href = '/signin';
+  }
+};
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -18,6 +37,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   
   const navigate = useNavigate();
+
+  // Set the logout function for global use
+  useEffect(() => {
+    const localLogout = () => {
+      setUser(null);
+      setToken(null);
+      setIsAuthenticated(false);
+      
+      localStorage.removeItem('user');
+      localStorage.removeItem('auth_token');
+      navigate('/signin');
+    };
+    
+    setLogoutFunction(localLogout);
+  }, [navigate]);
 
   // Load user from localStorage on mount
   useEffect(() => {
@@ -106,7 +140,6 @@ export const StudentRoute: React.FC<{ children: React.ReactNode }> = ({ children
 export const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, user } = useAuth();
   
-  console.log("AdminRoute check:", { isAuthenticated, userRole: user?.role });
 
   if (!isAuthenticated) {
     return <Navigate to="/signin" />;

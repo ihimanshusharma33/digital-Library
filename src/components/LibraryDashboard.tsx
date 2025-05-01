@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Course, Notice } from '../types';
-import { Search, BookOpen, Bell, ExternalLink } from 'lucide-react';
+import { Search, BookOpen, Bell, ExternalLink, LogOut, User } from 'lucide-react';
 import { api, API_ENDPOINTS } from '../utils/apiService';
 import { getApiBaseUrl } from '../utils/config';
 import { useAuth } from '../utils/AuthContext';
@@ -11,7 +11,7 @@ import Footer from './Layout/Footer';
 
 const LibraryDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, logout } = useAuth();  // Add logout from useAuth
 
   // State for courses list
   const [courses, setCourses] = useState<Course[]>([]);
@@ -106,7 +106,11 @@ const LibraryDashboard: React.FC = () => {
     setShowSemester(true);
   };
 
-  // Format date
+  // Handle logout
+  const handleLogout = () => {
+    logout();
+    navigate('/'); // Redirect to home after logout
+  };
 
   if (showsemester && currentCourse) {
     console.log('currentCourse', currentCourse);
@@ -117,37 +121,54 @@ const LibraryDashboard: React.FC = () => {
       />
     );
   }
+
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Fixed Navigation Bar */}
+      {/* Hero Section */}
       <div className="bg-blue-700 h-[55vh] text-white relative overflow-hidden">
-
         <div
-          className="absolute  inset-0 bg-cover bg-center z-0"
+          className="absolute inset-0 bg-cover bg-center z-0"
           style={{
             backgroundImage: "url('https://res.cloudinary.com/dcliahekv/image/upload/v1745924828/bg_j20yug.png')",
           }}
         >
-
           <div className="absolute inset-0 bg-gray-600 bg-opacity-50"></div>
-          {!isAuthenticated && (
-            <div className="mt-8 absolute top-5 right-10">
-              <button
-                onClick={() => navigate('/signin')}
-                className="px-5 py-2.5 bg-red-500 text-white rounded shadow-sm hover:bg-red-600 mr-4 font-medium"
-              >login
+          <div className='absolute top-3  right-5 z-10'>
+            {isAuthenticated ? (
+              <div className="flex items-center space-x-2"><button
+                onClick={() => {
+                  if (user) {
+                    user.role === 'admin' ? navigate('/admin') : navigate('/student');
+                  }
+                }}
+                className="px-4 py-2 bg-orange-500 hover:bg-orange-400 text-white rounded-md"
+              > Dashboard
               </button>
-            </div>
-          )}
+              </div>
+            ) : (
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => navigate('/signin')}
+                  className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-md"
+                >
+                  Login
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="max-w-7xl mx-auto px-4 py-16 relative z-10">
           <div className='flex justify-center'>
             <div>
-              <h1 className="text-4xl text-center ml-4 md:text-5xl font-bold">Wel come to IGU Digital Library</h1>
-              <img src='https://himachal365.s3.ap-south-1.amazonaws.com/73/Igu-New-Logo-website-1.png' className='w-full' />
+              <h1 className="text-4xl text-center ml-4 md:text-5xl font-bold">Welcome to IGU Digital Library</h1>
+              <div className='hidden lg:block sm:block'>
+              <img src='https://himachal365.s3.ap-south-1.amazonaws.com/73/Igu-New-Logo-website-1.png' className='w-full  ' />
+              </div>
 
               <div className="mt-8 max-w-xl mx-auto">
-                <div className="relative ">
+                <div className="relative">
                   <input
                     type="text"
                     className="w-full px-4 py-3 pl-10 border-0 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 text-gray-900"
@@ -281,8 +302,6 @@ const LibraryDashboard: React.FC = () => {
       <Footer />
     </div>
   );
-
-
 };
 
 export default LibraryDashboard;

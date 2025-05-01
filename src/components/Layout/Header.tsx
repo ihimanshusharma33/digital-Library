@@ -6,7 +6,7 @@ const Header: React.FC = () => {
       <img 
         src="https://himachal365.s3.ap-south-1.amazonaws.com/73/Igu-New-Logo-website-1.png" 
         alt="Logo" 
-        className="w-auto h-[14vh]"
+        className="w-auto lg:h-[14vh] md:h-[10vh]  sm:h-[4rem] object-contain"
       />
     </header>
   );
