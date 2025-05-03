@@ -2,7 +2,6 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import LibraryDashboard from './components/LibraryDashboard';
 import SignIn from './components/auth/SignIn';
-import SignUp from './components/auth/SignUp';
 import AdminLayout from './components/admin/AdminLayout';
 import Dashboard from './components/admin/Dashboard';
 import { AuthProvider } from './utils/AuthContext';
@@ -11,13 +10,15 @@ import StudentLayout from './components/student/StudentLayout';
 import StudentDashboard from './components/student/StudentDashboard';
 // Import the new CheckAuth component
 import CheckAuth from './components/auth/CheckAuth';
+import ForgotPassword from './components/auth/ForgotPassword';
 
 const AppRoutes: React.FC = () => {
   return (
     <Routes>
       {/* Auth routes - redirect authenticated users away */}
       <Route path="/signin" element={   <CheckAuth authPage={true}>  <SignIn /> </CheckAuth> } />
-      <Route path="/signup" element={<CheckAuth authPage={true}><SignUp /> </CheckAuth>} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      
       {/* Library Dashboard routes - open to all users */}
       <Route path="/" element={<LibraryDashboard />} />
 

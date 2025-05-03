@@ -1,6 +1,6 @@
-import React, {  useState } from 'react';
-import {  Loader } from 'lucide-react';
-import {  useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Loader } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../utils/AuthContext';
 import { api } from '../../utils/apiService';
 import { LoginResponse, User } from '../../types';
@@ -13,7 +13,6 @@ const SignIn: React.FC = () => {
 
   const navigate = useNavigate();
   const { login } = useAuth();
-
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,20 +27,23 @@ const SignIn: React.FC = () => {
     }
 
     try {
-      // Call the API to authenticate user
-      const response = await api.post<LoginResponse>('/login');
-      // Check for successful response
+      // Call the API to authenticate user - send credentials
+      const response = await api.post<LoginResponse>('/login', {
+        email: email,
+        password: password
+      });
+
+      console.log("Login response:", response); // Add this for debugging
       if (response && response.status) {
-        // Extract token and user data from response
+        // Extract token and user data from response.data, not directly from response
         const { token, user } = response;
 
-        // The API response doesn't include a role field, so determine based on email or other properties
-        const role = user.role;
+        // Create user data object from the response
         const userData: User = {
           id: user.id.toString(),
           name: user.name,
           email: user.email,
-          role: (['student', 'admin', 'staff'].includes(role || '') ? role : 'student') as 'student' | 'admin' | 'staff', // Default to 'student' if role is undefined or invalid
+          role: (user.role && ['student', 'admin', 'staff'].includes(user.role) ? user.role : 'student') as 'student' | 'admin' | 'staff',
           createdAt: new Date().toISOString()
         };
 
@@ -55,6 +57,7 @@ const SignIn: React.FC = () => {
           navigate('/student');
         }
       } else {
+        // Error message from the server or a default message
         setError(response?.message || 'Invalid credentials. Please try again.');
       }
     } catch (error: any) {
@@ -81,10 +84,14 @@ const SignIn: React.FC = () => {
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center">
       <div className="max-w-md w-full mx-auto">
         <div className="text-center mb-10">
-          <div onClick={() => navigate('/')}
-            className="flex justify-center mb-3">
+          <div
+            onClick={() => navigate('/')}
+            className="flex justify-center mb-3 cursor-pointer">
             <img
-              src="https://res.cloudinary.com/dcliahekv/image/upload/v1745924858/logo_f6ikuk.png" alt="Logo" className="h-24 w-24" />
+              src="https://res.cloudinary.com/dcliahekv/image/upload/v1745924858/logo_f6ikuk.png"
+              alt="Logo"
+              className="h-24 w-24"
+            />
           </div>
           <h1 className="text-3xl font-extrabold text-gray-900">Digital Library</h1>
           <p className="text-gray-500 mt-2">Sign in to your account</p>
@@ -143,7 +150,9 @@ const SignIn: React.FC = () => {
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-gray-600 text-sm">Don't have an account? <button onClick={() => navigate('/signup')} className="text-blue-600 hover:text-blue-800">Sign up</button></p>
+            <p className="text-gray-600 text-sm">
+              Forgot Your Password? <button onClick={() => navigate('/forgot-password')} className="text-blue-600 hover:text-blue-800">Click Here</button>
+            </p>
           </div>
         </div>
       </div>
