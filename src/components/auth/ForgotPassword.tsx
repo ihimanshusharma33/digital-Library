@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader, ArrowLeft, Mail, KeyRound, CheckCircle } from 'lucide-react';
 import { api } from '../../utils/apiService';
+import { ApiResponse } from '../../types';
 
 enum ForgotPasswordStep {
   REQUEST_RESET = 'REQUEST_RESET',
@@ -33,7 +34,7 @@ const ForgotPassword: React.FC = () => {
     setError(null);
     
     try {
-      const response = await api.post('/forgot-password', { email });
+      const response = await api.post<ApiResponse>('/forgot-password', { email });
       
       if (response?.status) {
         setSuccessMessage('Verification code sent to your email.');
@@ -83,7 +84,7 @@ const ForgotPassword: React.FC = () => {
     
     try {
       // Call API with the required format
-      const response = await api.post('/reset-password', {
+      const response = await api.post<ApiResponse>('/reset-password', {
         email: email,
         otp: verificationCode,
         password: newPassword,
