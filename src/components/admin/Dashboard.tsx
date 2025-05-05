@@ -52,6 +52,14 @@ const Dashboard: React.FC = () => {
   const [showIssueBookModal, setShowIssueBookModal] = useState(false);
   const [showReturnBookModal, setShowReturnBookModal] = useState(false);  // Add this state variable
   const [selectedIssuedBook] = useState<IssuedBook | null>(null); 
+  const [shouldRefresh, setShouldRefresh] = useState(false);
+
+  // Use effect to handle refresh
+  useEffect(() => {
+    if (shouldRefresh) {
+      setShouldRefresh(false);
+    }
+  }, [shouldRefresh]);
 
   // Fetch dashboard stats from API
   useEffect(() => {
@@ -89,30 +97,6 @@ const Dashboard: React.FC = () => {
     fetchDashboardData();
   }, []);
 
-  // Function to refresh dashboard after successful modal actions
-  const refreshDashboard = async () => {
-    try {
-      setIsLoading(prev => ({ ...prev, stats: true }));
-      const statsResponse = await api.get<ApiResponse<DashboardStatistics>>('/statistics');
-      if (statsResponse.data && statsResponse.status) {
-        const statsData = statsResponse.data;
-        setStats({
-          totalResources: statsData.resources?.total || 0,
-          totalUsers: statsData.users?.total || 0,
-          totalCourses: statsData.courses?.total || 0,
-          totalNotices: statsData.notices?.active || 0,
-          totalBooks: statsData.books?.total || 0,
-          totalPhysicalBooks: statsData.books?.physical || 0,
-          totalStudents: statsData.users?.students || 0,
-          isLoading: false,
-        });
-      }
-      setIsLoading(prev => ({ ...prev, stats: false }));
-    } catch (error) {
-      console.error('Error refreshing dashboard data:', error);
-      setIsLoading(prev => ({ ...prev, stats: false }));
-    }
-  };
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -235,7 +219,7 @@ const Dashboard: React.FC = () => {
         isOpen={showAddStudentModal}
         onClose={() => setShowAddStudentModal(false)}
         onSuccess={() => {
-          refreshDashboard();
+          setShouldRefresh(true);
           setShowAddStudentModal(false);
         }}
       />
@@ -262,3 +246,4 @@ const Dashboard: React.FC = () => {
 };
 
 export default Dashboard;
+

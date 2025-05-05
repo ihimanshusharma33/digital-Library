@@ -246,11 +246,11 @@ const LibraryDashboard: React.FC = () => {
       {/* Add padding-top to account for fixed header */}
       <div className="pt-16">
         {/* Hero Section */}
-        <div className="bg-blue-700 h-[50vh] lg:h-[55h] text-white relative overflow-hidden">
+        <div className="bg-blue-700 h-[50vh] lg:h-[75vh] text-white relative overflow-hidden">
           <div
-            className="absolute h-[50vh] lg:h-[100%] inset-0 bg-cover bg-center z-0"
+            className="absolute h-[50vh] lg:h-[75vh] inset-0 bg-cover bg-center z-0"
             style={{
-              backgroundImage: "url('https://res.cloudinary.com/dcliahekv/image/upload/v1745924828/bg_j20yug.png')",
+              backgroundImage: "url('https://res.cloudinary.com/dcliahekv/image/upload/c_crop,ar_16:9/v1745924828/bg_j20yug.png')",
             }}
           >
             <div className="absolute inset-0 bg-gray-600 bg-opacity-50"></div>
@@ -258,7 +258,7 @@ const LibraryDashboard: React.FC = () => {
 
           <div className="max-w-7xl mx-auto px-4 py-16 relative z-10">
             <div className='flex justify-center'>
-              <div className='mt-[5rem]'>
+              <div className='mt-[5rem] ]'>
                 <h1 className="text-4xl text-center ml-4 md:text-5xl font-bold">Welcome to IGU Digital Library</h1>
                 <div className='hidden lg:block sm:block'>
                   <img src='https://himachal365.s3.ap-south-1.amazonaws.com/73/Igu-New-Logo-website-1.png' className='w-full' />

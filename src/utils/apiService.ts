@@ -733,7 +733,7 @@ export const api = {
 
   createStudent: (data: StudentFormData) =>
     httpClient.post<ApiResponse<Student>>(
-      API_ENDPOINTS.STUDENTS, 
+      API_ENDPOINTS.USERS, 
       data,
       { clearCachePattern: API_ENDPOINTS.STUDENTS }
     ),
