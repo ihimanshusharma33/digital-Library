@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  PlusCircle, 
-  Search, 
-  Bell, 
-  Edit, 
-  Trash2, 
+import {
+  PlusCircle,
+  Search,
+  Bell,
+  Edit,
+  Trash2,
   ChevronDown,
   ChevronUp,
   Calendar,
   X
 } from 'lucide-react';
-import { Notice, Course, ResourceApiResponse,ApiResponse } from '../../types';
-import { api, API_ENDPOINTS ,} from '../../utils/apiService';
+import { Notice, Course, ApiResponse } from '../../types';
+import { api, API_ENDPOINTS, } from '../../utils/apiService';
 import NoticeFormModal from './modals/NoticeFormModal';
 
 const NoticesManager: React.FC = () => {
@@ -26,7 +26,7 @@ const NoticesManager: React.FC = () => {
     key: keyof Notice | null;
     direction: 'ascending' | 'descending';
   }>({ key: 'date', direction: 'descending' });
-  
+
   // Filter states
   const [filterCourse, setFilterCourse] = useState<string | undefined>(undefined);
   const [filterSemester, setFilterSemester] = useState<number | undefined>(undefined);
@@ -35,30 +35,7 @@ const NoticesManager: React.FC = () => {
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   useEffect(() => {
-    const fetchCourses = async () => {
-      try {
-        setCoursesLoading(true);
-        const response = await api.get<ResourceApiResponse<Course[]>>(API_ENDPOINTS.COURSES);
-        const data = response.data;
-        
-        if (Array.isArray(data)) {
-          const formattedCourses = data.map((course: Course) => ({
-            ...course,
-            name: course.course_name,
-            code: course.course_code
-          }));
-          setCourses(formattedCourses);
-        } else {
-          console.error('Failed to fetch courses from API');
-          setError('Failed to load courses. Please try again later.');
-        }
-      } catch (error) {
-        console.error('Error fetching courses:', error);
-        setError('Network error while loading courses. Please try again later.');
-      } finally {
-        setCoursesLoading(false);
-      }
-    };
+  
 
     // Fetch notices from API
     const fetchNotices = async () => {
@@ -67,31 +44,23 @@ const NoticesManager: React.FC = () => {
       try {
         const response = await api.get<ApiResponse<Notice[]>>(API_ENDPOINTS.NOTICES);
         const data = response.data;
-        
-        console.log('Notices API Response:', data); // Debug log
-        
+
+        console.log('Notices API Response:', data);
+
         if (Array.isArray(data)) {
 
           const formattedNotices: Notice[] = data.map((notice: any): Notice => ({
-            id: String(notice.id),
+            notification_id: String(notice.notification_id),
             title: notice.title || 'Untitled Notice',
             description: notice.description || '',
             date: notice.created_at || notice.date || new Date().toISOString(),
-            course_code: notice.course_code || notice.course_id?.toString() || '',
-            semester: notice.semester ?? undefined,
-            attachment: notice.attachment_url ? {
-              name: notice.attachment_name || 'Attachment',
-              url: notice.attachment_url,
-              type: notice.attachment_type || 'pdf',
-            } : undefined,
-            priority: notice.priority || 'medium',
-            expiry_date: notice.expiry_date,
-            created_by: notice.created_by || notice.author,
-            is_active: notice.is_active ?? true, // Default true if not provided
-            publish_date: notice.publish_date || new Date().toISOString(), // Default to current date
-            end_date: notice.end_date || null, // Default to null if not provided
+            attachment_name: notice.attachment_name || 'Attachment',
+            attachment_url: notice.attachment_url,
+            attachment_type: notice.attachment_type || 'pdf',
+            user_id: notice.user_id || 'Unknown User',
+            notification_type: notice.notification_type || 'general',
           }));
-        
+
           setNotices(formattedNotices);
           setFilteredNotices(formattedNotices);
           setError(null);
@@ -111,32 +80,24 @@ const NoticesManager: React.FC = () => {
       }
     };
 
-    fetchCourses();
     fetchNotices();
   }, []);
 
   useEffect(() => {
     let result = [...notices];
-    
+
     // Apply search filter
     if (searchTerm) {
       result = result.filter(
-        notice => 
+        notice =>
           notice.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
           notice.description.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
-    
+
     // Apply course filter
-    if (filterCourse) {
-      result = result.filter(notice => notice.course_code === filterCourse);
-    }
-    
-    // Apply semester filter
-    if (filterSemester !== undefined) {
-      result = result.filter(notice => notice.semester === filterSemester);
-    }
-    
+
+
     // Apply sorting
     if (sortConfig.key) {
       result.sort((a, b) => {
@@ -145,7 +106,7 @@ const NoticesManager: React.FC = () => {
             ? new Date(a.date).getTime() - new Date(b.date).getTime()
             : new Date(b.date).getTime() - new Date(a.date).getTime();
         }
-        
+
         if ((a[sortConfig.key as keyof Notice] ?? '') < (b[sortConfig.key as keyof Notice] ?? '')) {
           return sortConfig.direction === 'ascending' ? -1 : 1;
         }
@@ -155,7 +116,7 @@ const NoticesManager: React.FC = () => {
         return 0;
       });
     }
-    
+
     setFilteredNotices(result);
   }, [notices, searchTerm, sortConfig, filterCourse, filterSemester]);
 
@@ -171,8 +132,8 @@ const NoticesManager: React.FC = () => {
     if (sortConfig.key !== columnName) {
       return <ChevronDown className="w-4 h-4 opacity-20" />;
     }
-    return sortConfig.direction === 'ascending' ? 
-      <ChevronUp className="w-4 h-4" /> : 
+    return sortConfig.direction === 'ascending' ?
+      <ChevronUp className="w-4 h-4" /> :
       <ChevronDown className="w-4 h-4" />;
   };
 
@@ -182,92 +143,81 @@ const NoticesManager: React.FC = () => {
   };
 
   const handleEditNotice = (notice: Notice) => {
-    // Only open the modal if courses have been loaded
-    if (courses.length === 0) {
-      alert('Please wait until courses are loaded');
-      return;
-    }
     setCurrentNotice(notice);
     setIsModalOpen(true);
   };
 
-  const handleDeleteNotice = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this notice?')) {
-      try {
-        const response = await api.delete<ApiResponse<null>>(`${API_ENDPOINTS.NOTICES}/${id}`);
-        if (response.success) {
-          // Update local state after successful deletion
-          const updatedNotices = notices.filter(notice => notice.id !== id);
-          setNotices(updatedNotices);
-          setFilteredNotices(updatedNotices);
-          
-          // Replace alert with a styled notification
-          setNotification({
-            type: 'success',
-            message: 'Notice deleted successfully'
-          });
-          
-          // Clear notification after a few seconds
-          setTimeout(() => {
-            setNotification(null);
-          }, 5000);
-        } else {
-          console.error('Failed to delete notice:', response.message);
-          setNotification({
-            type: 'error',
-            message: `Failed to delete notice: ${response.message || 'Unknown error'}`
-          });
-        }
-      } catch (error) {
-        console.error('Error deleting notice:', error);
+  const handleDeleteNotice = async (notification_id: string) => {
+    try {
+      console.log('Deleting notice with ID:', notification_id);
+      const response = await api.deleteNotice(`${notification_id}`);
+      if (response.status) {
+        // Update local state after successful deletion
+        const updatedNotices = notices.filter(notice => notice.notification_id !== notification_id);
+        setNotices(updatedNotices);
+        setFilteredNotices(updatedNotices);
+
+        setNotification({
+          type: 'success',
+          message: 'Notice deleted successfully'
+        });
+
+        setTimeout(() => {
+          setNotification(null);
+        }, 3000);
+      } else {
+        console.error('Failed to delete notice:', response.message);
         setNotification({
           type: 'error',
-          message: 'Network error while deleting notice. Please try again later.'
+          message: `Failed to delete notice: ${response.message || 'Unknown error'}`
         });
       }
+    } catch (error) {
+      console.error('Error deleting notice:', error);
+      setNotification({
+        type: 'error',
+        message: 'Network error while deleting notice. Please try again later.'
+      });
     }
   };
 
-  const handleSaveNotice = async (noticeData: Omit<Notice, 'id'>) => {
+  const handleSaveNotice = async (noticeData: Notice, action: 'add' | 'update') => {
     try {
-      // Get the course code from the selected course
-      const selectedCourse = courses.find(course => course.id.toString() === noticeData.course_code);
-      const formData = new FormData();
-      formData.append('title', noticeData.title);
-      formData.append('description', noticeData.description);
-      formData.append('user_id', '1');
-      formData.append('course_code', selectedCourse?.course_code || '');
-      if (noticeData.semester) {
-        formData.append('semester', noticeData.semester.toString());
-      }
-      formData.append('notification_type', 'general'); 
-      if (noticeData.expiry_date) {
-        formData.append('expires_at', noticeData.expiry_date);
-      }
-      if (noticeData.attachment && noticeData.attachment.url) {
-        // Check if the URL is a data URL (from file input)
-        if (noticeData.attachment.url.startsWith('data:')) {
-          // Convert data URL to File object
-          const response = await fetch(noticeData.attachment.url);
-          const blob = await response.blob();
-          const file = new File([blob], noticeData.attachment.name, { type: blob.type });
-          formData.append('attachment', file);
-        } else if (currentNotice?.attachment?.url === noticeData.attachment.url) {
-          // This is an existing attachment URL, not a new file upload
-          formData.append('attachment_url', noticeData.attachment.url);
-          formData.append('attachment_name', noticeData.attachment.name);
-          formData.append('attachment_type', noticeData.attachment.type);
+      let response;
+      if (action === 'add') {
+        response = await api.createNotice(noticeData);
+        if (response && (response.status || response.success)) {
+          const newNotice = response.data;
+          if (newNotice) {
+            setNotices(prev => [newNotice, ...prev]);
+          }
+          if (newNotice) {
+            setFilteredNotices(prev => [newNotice, ...prev]);
+          }
+          setNotification({ type: 'success', message: response.message || 'Notice added successfully' });
+        } else {
+          setNotification({ type: 'error', message: response?.message || 'Failed to add notice' });
+        }
+      } else if (action === 'update') {
+        const noticeId = noticeData.notification_id || noticeData.notification_id;
+        response = await api.updateNotice(noticeId, noticeData);
+        if (response && (response.status || response.success)) {
+          const updatedNotice = response.data;
+          if (updatedNotice) {
+            setNotices(prev => prev.map(n => (n.notification_id === updatedNotice.notification_id) ? updatedNotice : n));
+            setFilteredNotices(prev => prev.map(n => (n.notification_id === updatedNotice.notification_id) ? updatedNotice : n));
+          }
+          setNotification({ type: 'success', message: response.message || 'Notice updated successfully' });
+        } else {
+          setNotification({ type: 'error', message: response?.message || 'Failed to update notice' });
         }
       }
-
-      console.log("Sending notice data to API as multipart/form-data");
+      setTimeout(() => setNotification(null), 3000);
     } catch (error) {
-      console.error('Error saving notice:', error);
-      return { success: false, message: 'Network error while saving notice. Please try again later.' };
+      setNotification({ type: 'error', message: 'Network error. Please try again.' });
     }
   };
 
-  // Helper function to get course name by I
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -285,7 +235,7 @@ const NoticesManager: React.FC = () => {
           <p className="text-gray-600">Manage library notices and announcements</p>
         </div>
         
-        <button 
+        <button
           onClick={handleAddNotice}
           className="mt-4 sm:mt-0 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
         >
@@ -293,7 +243,14 @@ const NoticesManager: React.FC = () => {
           Add Notice
         </button>
       </div>
-      
+      {
+          notification && (
+            <div className={`mt-4 p-4 rounded-md text-sm ${notification.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+              {notification.message}
+            </div>
+          )
+        }
+
       {/* Filters and search */}
       <div className="bg-white shadow rounded-lg p-6 mb-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -309,7 +266,7 @@ const NoticesManager: React.FC = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          
+
           <div className="flex flex-wrap gap-3">
             <div className="relative">
               <select
@@ -322,7 +279,7 @@ const NoticesManager: React.FC = () => {
                   <option value="" disabled>Loading courses...</option>
                 ) : (
                   courses.map(course => (
-                    <option key={course.id} value={course.id}>
+                    <option key={course.course_id} value={course.course_id}>
                       {course.code ? `${course.code} - ${course.name}` : course.name}
                     </option>
                   ))
@@ -332,7 +289,7 @@ const NoticesManager: React.FC = () => {
                 <ChevronDown className="w-4 h-4" />
               </div>
             </div>
-            
+
             <div className="relative">
               <select
                 value={filterSemester !== undefined ? filterSemester.toString() : ''}
@@ -351,50 +308,22 @@ const NoticesManager: React.FC = () => {
           </div>
         </div>
       </div>
-      
+
       {/* Notices Table */}
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
           <strong className="font-bold">Error:</strong>
           <span className="block sm:inline">{error}</span>
-          <button 
-            onClick={() => setError(null)} 
+          <button
+            onClick={() => setError(null)}
             className="absolute top-0 bottom-0 right-0 px-4 py-3"
           >
             <X className="w-4 h-4 text-red-500" />
           </button>
         </div>
       )}
-      {notification && (
-        <div className="mb-6 p-4 rounded-md flex items-center" style={{
-          backgroundColor: notification.type === 'success' ? 'rgba(220, 252, 231, 1)' : 'rgba(254, 226, 226, 1)',
-          border: `1px solid ${notification.type === 'success' ? 'rgba(134, 239, 172, 1)' : 'rgba(248, 113, 113, 1)'}`
-        }}>
-          <div className={`w-5 h-5 mr-3 ${notification.type === 'success' ? 'text-green-500' : 'text-red-500'}`}>
-            {notification.type === 'success' ? (
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-            ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-            )}
-          </div>
-          <div className={`font-medium ${notification.type === 'success' ? 'text-green-700' : 'text-red-700'}`}>
-            {notification.message}
-          </div>
-          <button
-            onClick={() => setNotification(null)}
-            className="ml-auto text-gray-400 hover:text-gray-500" 
-          >
-            <span className="sr-only">Close</span>
-            <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-            </svg>
-          </button>
-        </div>
-      )}
+
+
       <div className="bg-white shadow rounded-lg overflow-hidden">
         {isLoading ? (
           <div className="flex justify-center items-center h-64">
@@ -409,14 +338,8 @@ const NoticesManager: React.FC = () => {
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Notice
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Course
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Semester
-                    </th>
-                    <th 
-                      scope="col" 
+                    <th
+                      scope="col"
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                       onClick={() => requestSort('date')}
                     >
@@ -425,14 +348,14 @@ const NoticesManager: React.FC = () => {
                         {getSortIcon('date')}
                       </div>
                     </th>
-                    <th scope="col" className="relative px-6 py-3">
-                      <span className="sr-only">Actions</span>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer">
+                      Actions
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredNotices.map((notice) => (
-                    <tr key={notice.id} className="hover:bg-gray-50">
+                    <tr key={notice.notification_id} className="hover:bg-gray-50">
                       <td className="px-6 py-4">
                         <div className="flex items-center">
                           <div className="w-10 h-10 flex-shrink-0 mr-3">
@@ -445,27 +368,14 @@ const NoticesManager: React.FC = () => {
                               {notice.title}
                             </p>
                             <p className="text-sm text-gray-500 truncate">
-                              {notice.description.length > 60 
-                                ? `${notice.description.substring(0, 60)}...` 
+                              {notice.description.length > 60
+                                ? `${notice.description.substring(0, 60)}...`
                                 : notice.description}
                             </p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {notice.course_code ? notice.course_code : 'no course code'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {notice.semester ? (
-                          <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                            Semester {notice.semester}
-                          </span>
-                        ) : (
-                          <span className="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                            All Semesters
-                          </span>
-                        )}
-                      </td>
+
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         <div className="flex items-center">
                           <Calendar className="w-4 h-4 mr-1 text-gray-400" />
@@ -473,14 +383,14 @@ const NoticesManager: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button 
+                        <button
                           onClick={() => handleEditNotice(notice)}
                           className="text-blue-600 hover:text-blue-900 mr-4"
                         >
                           <Edit className="w-4 h-4" />
                         </button>
-                        <button 
-                          onClick={() => handleDeleteNotice(notice.id)}
+                        <button
+                          onClick={() => handleDeleteNotice(notice.notification_id)}
                           className="text-red-600 hover:text-red-900"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -501,11 +411,19 @@ const NoticesManager: React.FC = () => {
       {/* Notice Modal */}
       {isModalOpen && (
         <NoticeFormModal
-          notice={currentNotice}
-          onSave={handleSaveNotice}
-          onClose={() => setIsModalOpen(false)}
-          courses={courses}
           isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          notice={currentNotice}
+          onSave={(notice, action) => {
+            if (action === 'add') {
+              setNotices(prev => [notice, ...prev]);
+              setFilteredNotices(prev => [notice, ...prev]);
+            } else if (action === 'update') {
+              setNotices(prev => prev.map(n => (n.notification_id === notice.notification_id) ? notice : n));
+              setFilteredNotices(prev => prev.map(n => (n.notification_id === notice.notification_id) ? notice : n));
+            }
+          }}
+          courses={courses}
         />
       )}
     </div>

@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '../types';
 import { useNavigate, Navigate } from 'react-router-dom';
-import { createRoot } from 'react-dom/client';
 
 // Create a standalone logout function that can be imported elsewhere
 let logoutFn: () => void;
@@ -193,7 +192,7 @@ export const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }
   }
 
   // Allow both admin and staff roles to access admin routes
-  if (user?.role !== 'admin' && user?.role !== 'staff') {
+  if (user?.role !== 'admin' && user?.role !== 'librarian') {
     console.log("User not authorized for admin area:", user?.role);
     return <Navigate to="/dashboard" />;
   }

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import {
   PlusCircle,
@@ -12,8 +11,8 @@ import {
   CheckCircle,
   AlertCircle,
 } from 'lucide-react';
-import { Course } from '../../types';
-import { API_ENDPOINTS } from '../../utils/apiService';
+import { ApiResponse, Course } from '../../types';
+import { api, API_ENDPOINTS } from '../../utils/apiService';
 import CourseFormModal from './modals/CourseFormModal';
 import { ToastState } from '../../types';
 
@@ -67,27 +66,32 @@ const CoursesManager: React.FC = () => {
 
   /* ---- fetch ---- */
   useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch(API_ENDPOINTS.COURSES);
-        const json = await res.json();
-        if (json?.data && Array.isArray(json.data)) {
-          const formatted = json.data.map((c: any) => ({
-            ...c,
-            name: c.course_name ?? c.name,
-            code: c.course_code ?? c.code,
-          }));
-          setCourses(formatted);
-          setFiltered(formatted);
-        } else throw new Error('Invalid format');
-      } catch (err) {
-        console.error(err);
-        setToast({ type: 'error', message: 'Failed to load courses. Using sample data.' });
-      } finally {
-        setIsLoading(false);
-      }
-    })();
+    fetchCourses();
   }, []);
+
+  const fetchCourses = async () => {
+    try {
+      setIsLoading(true);
+      const response = await api.get<ApiResponse>(API_ENDPOINTS.COURSES);
+      
+      if (response && response.status) {
+        const formatted = (response.data as Course[]).map((c) => ({
+          ...c,
+          name: c.course_name ?? c.name,
+          code: c.course_code ?? c.code,
+        }));
+        setCourses(formatted);
+        setFiltered(formatted);
+      } else {
+        throw new Error('Failed to fetch courses');
+      }
+    } catch (err) {
+      console.error(err);
+      setToast({ type: 'error', message: 'Failed to load courses. Please try again.' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   /* ---- search + sort ---- */
   useEffect(() => {
@@ -131,61 +135,20 @@ const CoursesManager: React.FC = () => {
 
   /* ---------- CRUD helpers ---------- */
 
-  const saveCourse = async (
-    data: Omit<Course, 'id'>
-  ): Promise<{ ok: boolean; message: string }> => {
-    try {
-      if (editing) {
-        const res = await fetch(`${API_ENDPOINTS.COURSES}/${editing.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
-        });
-        const j = await res.json();
-        if (j?.status) {
-          setCourses((cs) =>
-            cs.map((c) => (c.id === editing.id ? { ...c, ...data, updated_at: new Date().toISOString() } : c))
-          );
-          return { ok: true, message: 'Course updated successfully' };
-        }
-        return { ok: false, message: j.message ?? 'Failed to update course' };
-      }
-      const res = await fetch(API_ENDPOINTS.COURSES, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      const j = await res.json();
-      if (j?.status) {
-        const newC: Course = {
-          id: j.data?.id ?? Date.now(),
-          ...data,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        setCourses((cs) => [...cs, newC]);
-        return { ok: true, message: 'Course added successfully' };
-      }
-      return { ok: false, message: j.message ?? 'Failed to add course' };
-    } catch (err) {
-      console.error(err);
-      return {
-        ok: false,
-        message: `Error ${editing ? 'updating' : 'adding'} course. Please try again.`,
-      };
-    }
-  };
+
 
   const delCourse = async (id: string | number) => {
     if (!window.confirm('Are you sure you want to delete this course?')) return;
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_ENDPOINTS.COURSES}/${id}`, { method: 'DELETE' });
-      const j = await res.json();
-      if (j?.status) {
-        setCourses((cs) => cs.filter((c) => c.id !== id));
+      const response = await api.delete<ApiResponse>(`${API_ENDPOINTS.COURSES}/${id}`);
+      
+      if (response && response.status) {
+        setCourses((cs) => cs.filter((c) => c.course_id !== id));
         setToast({ type: 'success', message: 'Course deleted successfully' });
-      } else setToast({ type: 'error', message: j.message ?? 'Failed to delete course' });
+      } else {
+        setToast({ type: 'error', message: response?.message ?? 'Failed to delete course' });
+      }
     } catch (err) {
       console.error(err);
       setToast({ type: 'error', message: 'Error deleting course' });
@@ -268,7 +231,7 @@ const CoursesManager: React.FC = () => {
                 <tbody className="divide-y divide-gray-200 bg-white">
                   {filtered.length ? (
                     filtered.map((c) => (
-                      <tr key={c.id} className="hover:bg-gray-50">
+                      <tr key={c.course_id} className="hover:bg-gray-50">
                         <td className="px-6 py-4">
                           <div className="flex items-center">
                             <div className="mr-3 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded bg-blue-100">
@@ -302,7 +265,7 @@ const CoursesManager: React.FC = () => {
                           <button onClick={() => (setEditing(c), setModalOpen(true))} className="mr-4 text-blue-600 hover:text-blue-900">
                             <Edit className="h-4 w-4" />
                           </button>
-                          <button onClick={() => delCourse(c.id)} className="text-red-600 hover:text-red-900">
+                          <button onClick={() => delCourse(c.course_id)} className="text-red-600 hover:text-red-900">
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </td>
@@ -329,19 +292,22 @@ const CoursesManager: React.FC = () => {
       {modalOpen && (
         <CourseFormModal
           isOpen={modalOpen}
-          key={editing?.id ?? 'new'}
+          key={editing?.course_id ?? 'new'}
           course={editing}
-          onSave={async (d:any) => {
-            const res = await saveCourse(d);
-            // Don't set toast notification in parent component anymore
-            // Only the modal component will handle displaying the success/error messages
-            if (res.ok) {
-              // Close the modal after a delay to show the success message
-              setTimeout(() => {
-                setModalOpen(false);
-              }, 2000);
-            }
-            return res;
+          onCreated={(newCourse) => {
+            setCourses((prev) => [...prev, newCourse]);
+            setToast({ type: 'success', message: 'Course added successfully' });
+            setModalOpen(false);
+          }}
+          onUpdated={(updatedCourse) => {
+            setCourses((prev) =>
+              prev.map((c) => (c.course_id === updatedCourse.course_id ? updatedCourse : c))
+            );
+            setToast({ type: 'success', message: 'Course updated successfully' });
+            setModalOpen(false);
+          }}
+          onError={(message) => {
+            setToast({ type: 'error', message });
           }}
           onClose={() => setModalOpen(false)}
         />

@@ -1,13 +1,13 @@
 import React, { useState, useRef } from 'react';
 import { X, Loader, Search, FileText, Download, Check } from 'lucide-react';
 import { api } from '../../../utils/apiService';
-// Removed unused jsPDF import
 import { createPortal } from 'react-dom';
-import { Student,GenerateNocModalProps, IssuedBook } from '../../../types';
+import { Student,GenerateNocModalProps, IssuedBook, ApiResponse } from '../../../types';
 
 
 const GenerateNocModal: React.FC<GenerateNocModalProps> = ({ isOpen, onClose }) => {
   const [isSearching, setIsSearching] = useState(false);
+  const [courseInfo, setCourseInfo] = useState<{ course_name: string; course_code: string } | null>(null);
   const [isFetchingDetails, setIsFetchingDetails] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -44,44 +44,42 @@ const GenerateNocModal: React.FC<GenerateNocModalProps> = ({ isOpen, onClose }) 
     setIsSearching(true);
     setError(null);
     setHasReturnedAllBooks(false);
-    
+
     try {
       // Call the API to get issued books by library ID
       const response = await api.getUserIssuedBooks(searchTerm);
-      
+
       if (response && response.status) {
         const data = response.data;
-        if (!data || typeof data !== 'object' || !('user' in data && 'total_fine' in data && 'issued_books' in data)) {
+        if (!data || typeof data !== 'object' || !('user' in data && 'issued_books' in data)) {
           throw new Error('Invalid response structure');
         }
-        // Removed unused variable 'userIssuedBooksResponse'
-        
-        // Check if all books are returned
-        const issuedBooks = data.issued_books as IssuedBook[]; // Explicitly assert the type
-        const allBooksReturned = issuedBooks.every(book => book.is_returned);
+
+        const issuedBooks = data.issued_books as IssuedBook[];
+        // If no books have been issued, treat as eligible for NOC
+        const allBooksReturned = issuedBooks.length === 0 || issuedBooks.every(book => book.is_returned);
         const hasPendingFine = typeof data.total_fine === 'number' && data.total_fine > 0;
-        
+
         if (allBooksReturned && !hasPendingFine) {
-          // If all books are returned and no fines are pending, fetch detailed student info
           setHasReturnedAllBooks(true);
-          
+
           // Create a basic student object from the user data
           const studentBasic: Student = {
-            id: (data.user as { id: number }).id.toString(),
+            user_id: (data.user as { user_id: number }).user_id.toString(),
             name: (data.user as { name: string }).name,
             library_id: (data.user as { library_id: string }).library_id,
             email: (data.user as { email: string }).email,
             phone_number: 'Not Available',
             department: 'Not Specified',
             university_roll_number: 0,
-            course_code: 'Not Specified',
+            course_id: 'Not Specified',
             role: 'student',
           };
-          
+
           setSelectedStudent(studentBasic);
-          
+
           // Fetch detailed user information
-          await fetchUserDetails((data.user as { id: number }).id);
+          await fetchUserDetails((data.user as { user_id: number }).user_id);
         } else {
           if (!allBooksReturned) {
             setError('Student has books that need to be returned first.');
@@ -104,14 +102,24 @@ const GenerateNocModal: React.FC<GenerateNocModalProps> = ({ isOpen, onClose }) 
   // Update the fetchUserDetails function to match the actual API response structure
 const fetchUserDetails = async (userId: number) => {
   setIsFetchingDetails(true);
-  
+
   try {
     const response = await api.get(`/user/${userId}`) as { status: boolean; data: Student };
     if (response && response.status) {
       const userData = response.data as Student;
-      console.log("User details response:", userData);
       setSelectedStudent(userData);
-    
+
+      // Fetch course info if course_id exists
+      if (userData.course_id) {
+        const courseResp = await api.get<ApiResponse<{ course_name: string; course_code: string; department_name?: string }>>(`/course/${userData.course_id}`);
+        if (courseResp && courseResp.status && courseResp.data) {
+          setCourseInfo({
+            course_name: (courseResp.data as { course_name: string }).course_name,
+            course_code: (courseResp.data as { course_code: string }).course_code,
+          });
+          setDepartmentName((courseResp.data as { department_name?: string }).department_name || null);
+        }
+      }
     } else {
       setError('Failed to fetch detailed student information.');
     }
@@ -216,7 +224,7 @@ const fetchUserDetails = async (userId: number) => {
             
             {/* Reference Number and Date */}
             <div className="flex justify-between mb-8">
-              <p>Ref No: LIB/NOC/{new Date().getFullYear()}/{selectedStudent.id}</p>
+              <p>Ref No: LIB/NOC/{new Date().getFullYear()}/{selectedStudent.user_id}</p>
               <p>Date: {new Date(formData.date).toLocaleDateString()}</p>
             </div>
             
@@ -234,10 +242,21 @@ const fetchUserDetails = async (userId: number) => {
                   
                   <p><strong>Library ID:</strong><br/> {selectedStudent.library_id}</p>
                   
-                  {selectedStudent.course_code && selectedStudent.course_code !== 'Not Specified' && (
-                    <p><strong>Course:</strong><br/> {selectedStudent.course_code}</p>
-                  )}
+                  {/* Show Course Name and Code */}
+                    {courseInfo && (
+                      <p><strong>Course:</strong><br/> {courseInfo.course_name} </p>
+                    )}
+
+                    {
+                      courseInfo && (
+                        <p><strong>Course Code</strong>
+                        <br/> {courseInfo.course_code}
+                        </p>
+                      )
+                    }
+
                   
+                  {/* Show Department Name */}
                   {selectedStudent.department && selectedStudent.department !== 'Not Specified' && (
                     <p><strong>Department:</strong><br/> {selectedStudent.department}</p>
                   )}
@@ -352,10 +371,9 @@ const fetchUserDetails = async (userId: number) => {
                       </div>
                       <input
                         type="text"
-                        placeholder="Enter student Library ID (e.g. LIB12345)"
+                        placeholder="Enter student Library ID "
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && searchStudentsByLibraryId()}
                         className="pl-10 pr-4 py-2 border rounded-lg w-full focus:ring-blue-500 focus:border-blue-500"
                         disabled={isSearching}
                       />
@@ -418,10 +436,10 @@ const fetchUserDetails = async (userId: number) => {
                               </div>
                             ) : (
                               <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                                {selectedStudent.course_code && (
+                                {selectedStudent.course_id && (
                                   <div className="p-1 bg-blue-50 rounded">
                                     <span className="text-gray-500">Course:</span>{' '}
-                                    <span className="font-medium">{selectedStudent.course_code}</span>
+                                    <span className="font-medium">{selectedStudent.course_id}</span>
                                   </div>
                                 )}
                             
@@ -544,3 +562,25 @@ const fetchUserDetails = async (userId: number) => {
 };
 
 export default GenerateNocModal;
+function setCourseInfo(courseInfo: { course_name: string; course_code: string; }) {
+  setSelectedStudent(prev => {
+    if (!prev) return null;
+    return {
+      ...prev,
+      course_id: `${courseInfo.course_name} (${courseInfo.course_code})`,
+    };
+  });
+}
+function setSelectedStudent(updateFn: (prev: Student | null) => Student | null) {
+  setSelectedStudent(prev => updateFn(prev));
+}
+function setDepartmentName(departmentName: string | null) {
+  setSelectedStudent(prev => {
+    if (!prev) return null;
+    return {
+      ...prev,
+      department: departmentName || 'Not Specified',
+    };
+  });
+}
+

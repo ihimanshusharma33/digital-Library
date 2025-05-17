@@ -16,15 +16,15 @@ const StudentProfile: React.FC = () => {
   const fetchUserProfile = async () => {
     try {
       setLoading(true);
-      if (!user?.id) {
+      if (!user?.user_id) {
         setError("User ID not found");
         return;
       }
 
-      console.log("Fetching profile for user ID:", user.id);
+      console.log("Fetching profile for user ID:", user.user_id);
 
       try {
-        const response = await api.getUserProfile(user.id);
+        const response = await api.getUserProfile(user.user_id);
         console.log("Raw API response:", response);
 
         if (response && response.status && response.data) {
@@ -50,7 +50,7 @@ const StudentProfile: React.FC = () => {
 
   useEffect(() => {
     fetchUserProfile();
-  }, [user?.id]);
+  }, [user?.user_id]);
 
   // Format date helper function
 
@@ -136,7 +136,7 @@ const StudentProfile: React.FC = () => {
               <InfoItem
                 icon={BookOpen}
                 label="Course"
-                value={profile.course_code || "Not specified"}
+                value={profile.course_name || "Not specified"}
               />
               <InfoItem
                 icon={Building}

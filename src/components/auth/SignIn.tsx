@@ -29,21 +29,19 @@ const SignIn: React.FC = () => {
     try {
       // Call the API to authenticate user - send credentials
       const response = await api.post<LoginResponse>('/login', {
-        email: email,
+        identifier: email,
         password: password
       });
 
       console.log("Login response:", response); // Add this for debugging
       if (response && response.status) {
-        // Extract token and user data from response.data, not directly from response
+        console.log("Login successful:", response); // Add this for debugging
         const { token, user } = response;
-
-        // Create user data object from the response
         const userData: User = {
-          id: user.id.toString(),
+          user_id: user.user_id.toString(),
           name: user.name,
           email: user.email,
-          role: (user.role && ['student', 'admin', 'staff'].includes(user.role) ? user.role : 'student') as 'student' | 'admin' | 'staff',
+          role: (user.role && ['student', 'admin', 'librarian'].includes(user.role) ? user.role : 'student') as 'student' | 'admin' | 'librarian',
           createdAt: new Date().toISOString()
         };
 
@@ -51,7 +49,7 @@ const SignIn: React.FC = () => {
         login(userData, token);
 
         // Redirect based on role
-        if (userData.role === 'admin' || userData.role === 'staff') {
+        if (userData.role === 'admin' || userData.role === 'librarian') {
           navigate('/admin');
         } else {
           navigate('/student');
@@ -114,7 +112,7 @@ const SignIn: React.FC = () => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
+                placeholder="Enter your email or Phone number or Library ID"
                 className="w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 required
               />

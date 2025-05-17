@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  PlusCircle, 
-  Search, 
-  Edit, 
-  Trash2, 
+import {
+  PlusCircle,
+  Search,
+  Edit,
+  Trash2,
   ChevronDown,
   ChevronUp,
   Book as BookIcon,
@@ -11,6 +11,7 @@ import {
 import { Book, Course } from '../../types';
 import { API_ENDPOINTS } from '../../utils/apiService';
 import { getApiBaseUrl } from '../../utils/config';
+import { api } from '../../utils/apiService';
 
 const BookStocksManager: React.FC = () => {
   const [books, setBooks] = useState<Book[]>([]);
@@ -20,11 +21,14 @@ const BookStocksManager: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentBook, setCurrentBook] = useState<Book | null>(null);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [notification, setNotification] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
 
-  // Filter states
+  // Filter states - removed filterSemester
   const [filterCategory, setFilterCategory] = useState<string | undefined>(undefined);
   const [filterCourse, setFilterCourse] = useState<string | undefined>(undefined);
-  const [filterSemester, setFilterSemester] = useState<number | undefined>(undefined);
   const [filterAvailability, setFilterAvailability] = useState<boolean | undefined>(undefined);
 
   // Sorting
@@ -42,7 +46,6 @@ const BookStocksManager: React.FC = () => {
     coverImage: string;
     availableCopies: number;
     courseCode: string;
-    semester: number;
     publisher: string;
     publication_year: number;
     edition: string;
@@ -56,7 +59,6 @@ const BookStocksManager: React.FC = () => {
     coverImage: '',
     availableCopies: 0,
     courseCode: '',
-    semester: 1,
     publisher: '',
     publication_year: new Date().getFullYear(),
     edition: '',
@@ -70,11 +72,11 @@ const BookStocksManager: React.FC = () => {
       try {
         const response = await fetch(`${getApiBaseUrl()}${API_ENDPOINTS.COURSES}`);
         const data = await response.json();
-        
+
         if (data && data.status) {
           const formattedCourses = data.data.map((course: Course) => ({
             ...course,
-            id: course.id.toString(),
+            id: course.course_id.toString(),
             name: course.course_name,
             code: course.course_code
           }));
@@ -90,76 +92,93 @@ const BookStocksManager: React.FC = () => {
     fetchCourses();
   }, []);
 
-  useEffect(() => {
-    const fetchBooks = async () => {
-      try {
-        const response = await fetch(`${getApiBaseUrl()}${API_ENDPOINTS.BOOKS}`);
-        const data = await response.json();
-        
-        if (data && data.status) {
-          setBooks(data.data);
-          setFilteredBooks(data.data);
-        } else {
-          console.error('Failed to fetch books from API');
-          // Removed unused setApiError call
-        }
-      } catch (error) {
-        console.error('Error fetching books:', error);
-        // Removed unused setApiError call
-      } finally {
-        setIsLoading(false);
+  // Place this function at the top level of your component
+  const fetchBooks = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${getApiBaseUrl()}${API_ENDPOINTS.BOOKS}`);
+      const data = await response.json();
+      if (data && data.status) {
+        setBooks(data.data);
+        setFilteredBooks(data.data);
+      } else {
+        console.error('Failed to fetch books from API');
       }
-    };
+    } catch (error) {
+      console.error('Error fetching books:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  // In useEffect, call fetchBooks on mount
+  useEffect(() => {
     fetchBooks();
   }, []);
 
   // Apply filters and search
   useEffect(() => {
     let result = [...books];
-    
+
     // Apply search filter
     if (searchTerm) {
       result = result.filter(
-        book => 
+        book =>
           book.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
           book.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
           book.isbn.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          book.publisher?.toLowerCase().includes(searchTerm.toLowerCase())
+          (book.publisher ? book.publisher.toLowerCase().includes(searchTerm.toLowerCase()) : false)
       );
     }
-    
+
     // Apply category filter
     if (filterCategory) {
       result = result.filter(book => book.category === filterCategory);
     }
-    
+
     // Apply course filter
     if (filterCourse) {
-      result = result.filter(book => book.courseCode === filterCourse);
-    }
-    
-    // Apply semester filter
-    if (filterSemester !== undefined) {
-      result = result.filter(book => book.semester === filterSemester);
+      // Use console.log to debug
+      console.log("Filtering by course ID:", filterCourse);
+      
+      // Convert filterCourse to string to ensure consistent comparison
+      const filterCourseStr = String(filterCourse);
+      
+      result = result.filter(book => {
+        // Convert book.course_id to string as well for comparison
+        return String(book.course_id) === filterCourseStr;
+      });
     }
 
     // Apply availability filter
     if (filterAvailability !== undefined) {
       if (filterAvailability) {
-        result = result.filter(book => book.availableCopies > 0);
+        result = result.filter(book => 
+          (book.availableCopies > 0) || 
+          (book.available_quantity > 0)
+        );
       } else {
-        result = result.filter(book => book.availableCopies === 0);
+        result = result.filter(book => 
+          (book.availableCopies === 0 || book.availableCopies === undefined) && 
+          (book.available_quantity === 0 || book.available_quantity === undefined)
+        );
       }
     }
-    
-    // Apply sorting
+
+    // Apply sorting - make sure we're using safe property access
     if (sortConfig.key) {
       result.sort((a, b) => {
-        if (sortConfig.key && (a[sortConfig.key as keyof Book] ?? '') < (b[sortConfig.key as keyof Book] ?? '')) {
+        const aValue = a[sortConfig.key as keyof Book];
+        const bValue = b[sortConfig.key as keyof Book];
+        
+        // Handle undefined or null values
+        const aComp = aValue ?? '';
+        const bComp = bValue ?? '';
+        
+        if (aComp < bComp) {
           return sortConfig.direction === 'ascending' ? -1 : 1;
         }
-        if (sortConfig.key && (a[sortConfig.key as keyof Book] ?? '') > (b[sortConfig.key as keyof Book] ?? '')) {
+        if (aComp > bComp) {
           return sortConfig.direction === 'ascending' ? 1 : -1;
         }
         return 0;
@@ -167,7 +186,7 @@ const BookStocksManager: React.FC = () => {
     }
 
     setFilteredBooks(result);
-  }, [books, searchTerm, filterCategory, filterCourse, filterSemester, filterAvailability, sortConfig]);
+  }, [books, searchTerm, filterCategory, filterCourse, filterAvailability, sortConfig]);
 
   // Handle sorting
   const requestSort = (key: keyof Book) => {
@@ -177,14 +196,14 @@ const BookStocksManager: React.FC = () => {
     }
     setSortConfig({ key, direction });
   };
-  
+
   // Get sort icon for table headers
   const getSortIcon = (key: keyof Book) => {
     if (sortConfig.key !== key) {
       return null;
     }
-    return sortConfig.direction === 'ascending' ? 
-      <ChevronUp className="w-4 h-4 ml-1" /> : 
+    return sortConfig.direction === 'ascending' ?
+      <ChevronUp className="w-4 h-4 ml-1" /> :
       <ChevronDown className="w-4 h-4 ml-1" />;
   };
 
@@ -198,7 +217,6 @@ const BookStocksManager: React.FC = () => {
       coverImage: '',
       availableCopies: 0,
       courseCode: courses[0]?.code || '',
-      semester: 1,
       publisher: '',
       publication_year: new Date().getFullYear(),
       edition: '',
@@ -218,7 +236,7 @@ const BookStocksManager: React.FC = () => {
   const handleEditBook = (book: Book) => {
     setCurrentBook(book);
     setFormData({
-      id: book.id,
+      id: book.book_id,
       title: book.title,
       author: book.author,
       isbn: book.isbn,
@@ -226,28 +244,131 @@ const BookStocksManager: React.FC = () => {
       coverImage: book.coverImage,
       availableCopies: book.availableCopies,
       courseCode: book.courseCode || '',
-      semester: book.semester || 1,
       publisher: book.publisher || '',
       publication_year: book.publication_year || new Date().getFullYear(),
       edition: book.edition || '',
-      location: book.location || '',
-      total_copies: book.total_copies || 0
+      location: book.shelf_location || '',
+      total_copies: book.quantity || 0
     });
     setIsModalOpen(true);
   };
 
+  // Handle form submission for adding/editing a book
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const newBook: Omit<Book, 'book_id'> = {
+      title: formData.title,
+      author: formData.author,
+      isbn: formData.isbn,
+      category: formData.category,
+      coverImage: formData.coverImage || 'https://placehold.co/200x300',
+      availableCopies: formData.availableCopies,
+      course_id: formData.courseCode,
+      publisher: formData.publisher,
+      publication_year: formData.publication_year,
+      edition: formData.edition,
+      shelf_location: formData.location,
+      available_quantity: formData.availableCopies,
+      quantity: formData.total_copies,
+      is_available: formData.availableCopies > 0
+    };
+
+    setNotification(null); // Clear previous notification
+
+    try {
+      if (currentBook) {
+        // Update existing book
+        const response = await api.updateBook(currentBook.book_id, { ...newBook, book_id: currentBook.book_id });
+        if (response && (response.status || response.success) && response.data) {
+          setBooks(prevBooks =>
+            prevBooks.map(book =>
+              book.book_id === currentBook.book_id ? response.data : book
+            ).filter((book): book is Book => book !== undefined)
+          );
+          setFilteredBooks(prevBooks =>
+            prevBooks.map(book =>
+              book.book_id === currentBook.book_id ? response.data : book
+            ).filter((book): book is Book => book !== undefined)
+          );
+          setNotification({
+            type: 'success',
+            message: 'Book updated successfully.'
+          });
+          setTimeout(() => {
+            setIsModalOpen(false);
+            setNotification(null);
+          }, 1200);
+        } else {
+          setNotification({
+            type: 'error',
+            message: response?.message || 'Failed to update book'
+          });
+        }
+      } else {
+        // Add new book (do not send book_id)
+        const response = await api.createBook(newBook);
+        if (response && (response.status || response.success) && response.data) {
+          setBooks(prevBooks => [response.data, ...prevBooks]);
+          setFilteredBooks(prevBooks => [response.data, ...prevBooks]);
+          setNotification({
+            type: 'success',
+            message: 'Book added successfully.'
+          });
+          setTimeout(() => {
+            setIsModalOpen(false);
+            setNotification(null);
+          }, 1200);
+        } else {
+          setNotification({
+            type: 'error',
+            message: response?.message || 'Failed to add book'
+          });
+        }
+      }
+    } catch (error) {
+      setNotification({
+        type: 'error',
+        message: 'Network error while saving book.'
+      });
+    }
+  };
+
   // Handle deleting a book
-  const handleDeleteBook = (bookId: string) => {
+  const handleDeleteBook = async (bookId: string) => {
+    setNotification(null); // Clear previous notification
     if (confirm('Are you sure you want to delete this book?')) {
-      // In a real app, make an API call to delete the book
-      setBooks(prevBooks => prevBooks.filter(book => book.id !== bookId));
+      try {
+        const response = await api.deleteBook(bookId);
+        if (response && (response.status || response.success)) {
+          setBooks(prevBooks => prevBooks.filter(book => book.book_id !== bookId));
+          setFilteredBooks(prevBooks => prevBooks.filter(book => book.book_id !== bookId));
+          setNotification({
+            type: 'success',
+            message: 'Book deleted successfully.'
+          });
+          setTimeout(() => {
+            setNotification(null);
+          }, 1200);
+        } else {
+          setNotification({
+            type: 'error',
+            message: response?.message || 'Failed to delete book'
+          });
+        }
+      } catch (error) {
+        setNotification({
+          type: 'error',
+          message: 'Network error while deleting book.'
+        });
+      }
     }
   };
 
   // Handle form input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
-    
+
     // Parse numeric values
     if (type === 'number') {
       setFormData({
@@ -262,64 +383,31 @@ const BookStocksManager: React.FC = () => {
     }
   };
 
-  // Handle form submission for adding/editing a book
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const newBook: Book = {
-      id: currentBook?.id || String(new Date().getTime()),
-      title: formData.title,
-      author: formData.author,
-      isbn: formData.isbn,
-      category: formData.category,
-      coverImage: formData.coverImage || 'https://placehold.co/200x300',
-      availableCopies: formData.availableCopies,
-      courseCode: formData.courseCode,
-      semester: formData.semester,
-      publisher: formData.publisher,
-      publication_year: formData.publication_year,
-      edition: formData.edition,
-      location: formData.location,
-      total_copies: formData.total_copies,
-      is_available: formData.availableCopies > 0 // Set based on availableCopies
-    };
-
-    if (currentBook) {
-      // Editing existing book
-      setBooks(prevBooks => 
-        prevBooks.map(book => 
-          book.id === currentBook.id ? newBook : book
-        )
-      );
-    } else {
-      // Adding new book
-      setBooks(prevBooks => [...prevBooks, newBook]);
-    }
-    
-    setIsModalOpen(false);
-  };
-  
   // Get unique categories for filtering
   const categories = [...new Set(books.map(book => book.category))];
-  
+
   // Get availability status display
   const getAvailabilityDisplay = (book: Book) => {
-    if (book.availableCopies <= 0) {
+    // Check which property exists and use that one
+    const availableCount = book.availableCopies !== undefined ? book.availableCopies : 
+                           book.available_quantity !== undefined ? book.available_quantity : 0;
+    
+    if (availableCount <= 0) {
       return (
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
           Out of Stock
         </span>
       );
-    } else if (book.availableCopies < 3) {
+    } else if (availableCount < 3) {
       return (
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-          Low Stock ({book.availableCopies})
+          Low Stock ({availableCount})
         </span>
       );
     } else {
       return (
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-          In Stock ({book.availableCopies})
+          In Stock ({availableCount})
         </span>
       );
     }
@@ -329,7 +417,7 @@ const BookStocksManager: React.FC = () => {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Book Inventory Management</h1>
-        <button 
+        <button
           onClick={handleAddBook}
           className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
         >
@@ -337,6 +425,13 @@ const BookStocksManager: React.FC = () => {
           Add Book
         </button>
       </div>
+
+      {/* Notification */}
+      {notification && (
+        <div className={`notification ${notification.type}`}>
+          {notification.message}
+        </div>
+      )}
 
       {/* Search and Filters */}
       <div className="bg-white shadow rounded-lg p-6 mb-6">
@@ -353,7 +448,7 @@ const BookStocksManager: React.FC = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          
+
           <div className="flex flex-wrap gap-3">
             <div className="relative">
               <select
@@ -369,7 +464,7 @@ const BookStocksManager: React.FC = () => {
                 ))}
               </select>
             </div>
-            
+
             <div className="relative">
               <select
                 value={filterCourse || ''}
@@ -378,28 +473,14 @@ const BookStocksManager: React.FC = () => {
               >
                 <option value="">All Courses</option>
                 {courses.map(course => (
-                  <option key={course.id} value={course.code}>
-                    {course.code} - {course.name}
+                  // Use the course_id as the value but display the name and code
+                  <option key={course.course_id} value={course.course_id}>
+                    {course.course_name || course.name} ({course.course_code || course.code})
                   </option>
                 ))}
               </select>
             </div>
-            
-            <div className="relative">
-              <select
-                value={filterSemester === undefined ? '' : filterSemester}
-                onChange={(e) => setFilterSemester(e.target.value ? parseInt(e.target.value, 10) : undefined)}
-                className="appearance-none bg-white border rounded-lg px-4 py-2 pr-8 leading-tight focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="">All Semesters</option>
-                {[1, 2, 3, 4, 5, 6, 7, 8].map(sem => (
-                  <option key={sem} value={sem}>
-                    Semester {sem}
-                  </option>
-                ))}
-              </select>
-            </div>
-            
+
             <div className="relative">
               <select
                 value={filterAvailability === undefined ? '' : filterAvailability ? 'available' : 'unavailable'}
@@ -417,7 +498,7 @@ const BookStocksManager: React.FC = () => {
           </div>
         </div>
       </div>
-      
+
       {/* Books Table */}
       <div className="bg-white shadow-md rounded-lg overflow-hidden">
         {isLoading ? (
@@ -430,8 +511,8 @@ const BookStocksManager: React.FC = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th 
-                    scope="col" 
+                  <th
+                    scope="col"
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                     onClick={() => requestSort('title')}
                   >
@@ -440,8 +521,8 @@ const BookStocksManager: React.FC = () => {
                       {getSortIcon('title')}
                     </div>
                   </th>
-                  <th 
-                    scope="col" 
+                  <th
+                    scope="col"
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                     onClick={() => requestSort('category')}
                   >
@@ -450,8 +531,8 @@ const BookStocksManager: React.FC = () => {
                       {getSortIcon('category')}
                     </div>
                   </th>
-                  <th 
-                    scope="col" 
+                  <th
+                    scope="col"
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                     onClick={() => requestSort('isbn')}
                   >
@@ -460,8 +541,8 @@ const BookStocksManager: React.FC = () => {
                       {getSortIcon('isbn')}
                     </div>
                   </th>
-                  <th 
-                    scope="col" 
+                  <th
+                    scope="col"
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                     onClick={() => requestSort('availableCopies')}
                   >
@@ -470,18 +551,18 @@ const BookStocksManager: React.FC = () => {
                       {getSortIcon('availableCopies')}
                     </div>
                   </th>
-                  <th 
-                    scope="col" 
+                  <th
+                    scope="col"
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                    onClick={() => requestSort('location')}
+                    onClick={() => requestSort('shelf_location')}
                   >
                     <div className="flex items-center">
                       Location
-                      {getSortIcon('location')}
+                      {getSortIcon('shelf_location')}
                     </div>
                   </th>
-                  <th 
-                    scope="col" 
+                  <th
+                    scope="col"
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                   >
                     Actions
@@ -490,7 +571,7 @@ const BookStocksManager: React.FC = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredBooks.map((book) => (
-                  <tr key={book.id} className="hover:bg-gray-50">
+                  <tr key={book.book_id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="h-10 w-8 flex-shrink-0 mr-4 bg-gray-200 rounded overflow-hidden">
@@ -510,7 +591,7 @@ const BookStocksManager: React.FC = () => {
                           </div>
                           {book.courseCode && (
                             <div className="text-xs text-gray-500">
-                              {book.courseCode} {book.semester && `• Sem ${book.semester}`}
+                              {book.courseCode}
                             </div>
                           )}
                         </div>
@@ -525,21 +606,21 @@ const BookStocksManager: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       {getAvailabilityDisplay(book)}
                       <div className="text-xs text-gray-500 mt-1">
-                        Total: {book.total_copies || '—'}
+                        Total: {book.quantity || '—'}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {book.location || '—'}
+                      {book.shelf_location || '—'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button 
+                      <button
                         onClick={() => handleEditBook(book)}
                         className="text-blue-600 hover:text-blue-900 mr-4"
                       >
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button 
-                        onClick={() => handleDeleteBook(book.id)}
+                      <button
+                        onClick={() => handleDeleteBook(book.book_id)}
                         className="text-red-600 hover:text-red-900"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -557,8 +638,8 @@ const BookStocksManager: React.FC = () => {
             </div>
             <h3 className="mt-4 text-gray-900 font-medium">No books found</h3>
             <p className="mt-1 text-gray-500">
-              {searchTerm || filterCategory || filterCourse || filterSemester !== undefined ? 
-                'Try adjusting your search or filter criteria.' : 
+              {searchTerm || filterCategory || filterCourse || filterAvailability !== undefined ?
+                'Try adjusting your search or filter criteria.' :
                 'Add your first book by clicking the "Add Book" button above.'}
             </p>
           </div>
@@ -580,7 +661,7 @@ const BookStocksManager: React.FC = () => {
                 ✕
               </button>
             </div>
-            
+
             <form onSubmit={handleSubmit}>
               <div className="p-6">
                 <div className="mb-6">
@@ -597,7 +678,7 @@ const BookStocksManager: React.FC = () => {
                     className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                   <div>
                     <label htmlFor="author" className="block text-sm font-medium text-gray-700 mb-1">
@@ -645,7 +726,7 @@ const BookStocksManager: React.FC = () => {
                       placeholder="e.g. Computer Science, Mathematics"
                     />
                   </div>
-                  
+
                   <div>
                     <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
                       Shelf Location
@@ -676,7 +757,7 @@ const BookStocksManager: React.FC = () => {
                       className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
-                  
+
                   <div>
                     <label htmlFor="publication_year" className="block text-sm font-medium text-gray-700 mb-1">
                       Publication Year
@@ -692,7 +773,7 @@ const BookStocksManager: React.FC = () => {
                       className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
-                  
+
                   <div>
                     <label htmlFor="edition" className="block text-sm font-medium text-gray-700 mb-1">
                       Edition
@@ -723,27 +804,8 @@ const BookStocksManager: React.FC = () => {
                     >
                       <option value="">Select a course</option>
                       {courses.map(course => (
-                        <option key={course.id} value={course.code}>
+                        <option key={course.course_id} value={course.course_id}>
                           {course.code} - {course.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label htmlFor="semester" className="block text-sm font-medium text-gray-700 mb-1">
-                      Semester
-                    </label>
-                    <select
-                      id="semester"
-                      name="semester"
-                      value={formData.semester}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      {[1, 2, 3, 4, 5, 6, 7, 8].map(sem => (
-                        <option key={sem} value={sem}>
-                          Semester {sem}
                         </option>
                       ))}
                     </select>
@@ -766,7 +828,7 @@ const BookStocksManager: React.FC = () => {
                       className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
-                  
+
                   <div>
                     <label htmlFor="availableCopies" className="block text-sm font-medium text-gray-700 mb-1">
                       Available Copies
@@ -788,7 +850,7 @@ const BookStocksManager: React.FC = () => {
                       </p>
                     )}
                   </div>
-                  
+
                   <div>
                     <label htmlFor="coverImage" className="block text-sm font-medium text-gray-700 mb-1">
                       Cover Image URL
@@ -805,10 +867,11 @@ const BookStocksManager: React.FC = () => {
                   </div>
                 </div>
               </div>
-              
+
               <div className="px-6 py-4 border-t bg-gray-50 flex justify-end">
                 <button
                   type="button"
+                  disabled={formData.availableCopies > formData.total_copies}
                   onClick={() => setIsModalOpen(false)}
                   className="px-4 py-2 text-gray-700 bg-white border rounded-md shadow-sm mr-2 hover:bg-gray-50"
                 >

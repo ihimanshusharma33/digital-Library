@@ -1,6 +1,6 @@
 // Course related types
 export interface Course {
-  id: number;
+  course_id: number;
   course_code: string;
   course_name: string;
   description: string;
@@ -40,7 +40,7 @@ export interface ResourceBase {
   description?: string;
   uploaded_by: string;
   upload_date: string;
-  course_code: string;
+  course_id: string;
   semester: number;
   file_type: string;
 
@@ -69,10 +69,13 @@ export interface Resource {
   uploadedBy: string;
   fileType: 'pdf' | 'doc' | 'ppt' | 'xlsx' | 'image' | 'other';
   url: string;
-  courseId: string;
   category: 'textbook' | 'notes' | 'questions';
   uploadDate: string;
   description?: string;
+  course_id: string;
+  book_id?: string; // Optional book ID for textbooks
+  notes_id?: string; // Optional notes ID for notes
+  paper_id?: string; // Optional paper ID for question papers
   semester: number; // Adding semester information
   author?: string; // Optional author field for textbooks
   edition?: string; // Optional edition field for textbooks
@@ -91,31 +94,22 @@ export interface Resource {
   exam_type?: string; // Optional exam type field for question papers
   year?: string; // Optional year field for question papers
   available_quantity?: number; // Optional available quantity field for textbooks
-  course_code?: string; // Optional course code field for textbooks
   file_path?: string; // Optional file path field for textbooks
   created_at?: string; // Optional created at field for textbooks
+  resourceType?: ResourceType; // Optional resource type field for textbooks
 }
 
 export interface Notice {
-  id: string;
+  notification_id: string;
   title: string;
   description: string;
-  date: string;
-  course_code: string;
-  semester?: number;
-  is_active: boolean;
-  content?: string;
-  publish_date: string;
-  end_date: string;
-  attachment?: {
-    name: string;
-    url: string;
-    type: string;
-  };
-  priority?: 'low' | 'medium' | 'high';
-  expiry_date?: string;
-  created_by?: string;
+  user_id: number;
+  notification_type: string;
+  attachment_url: string | undefined;
+  attachment_name: string | undefined;
+  attachment_type: string | undefined;
   created_at?: Date;
+  date: string;
 }
 
 // Fixed to match the actual category values used in Resource interface
@@ -123,10 +117,10 @@ export type ResourceCategory = 'textbooks' | 'notes' | 'questions' | 'notices';
 
 // Auth and User related types
 export interface User {
-  id: string;
+  user_id: string;
   name: string;
   email: string;
-  role: 'student' | 'admin' | 'staff';
+  role: 'student' | 'admin' | 'librarian';
   createdAt: string;
   profile_image?: string;
   department?: string;
@@ -150,7 +144,8 @@ export interface SignupData {
 
 // Student dashboard related types
 export interface Book {
-  id: string;
+  book_id: string;
+  course_id: string;
   title: string;
   author: string;
   isbn: string;
@@ -162,9 +157,10 @@ export interface Book {
   publisher?: string;
   publication_year?: number;
   edition?: string;
-  location?: string;
+  shelf_location?: string;
+  available_quantity: number;
+  quantity?: number;
   is_available: boolean;
-  total_copies?: number;
 }
 
 export interface AuthState {
@@ -269,8 +265,8 @@ export interface StudentFormData {
   email: string;
   phone_number: string;
   department: string;
-  university_roll_number: string;
-  course_code: string;
+  university_roll_number: number;
+  course_id: string;
 }
 
 
@@ -367,7 +363,7 @@ export interface LoginResponse {
   token: string;
   message: string;
   user: {
-    id: number;
+    user_id: number;
     name: string;
     email: string;
     role?: string;
@@ -382,12 +378,12 @@ export interface CourseResponse {
 
 // Ebook resource type
 export interface Ebook {
-  id: number;
+  ebook_id: number;
   title: string;
   description: string;
   author: string;
   file_path: string;
-  course_code: string;
+  course_id: string;
   semester: number;
   is_verified: boolean;
   created_at: string;
@@ -396,7 +392,7 @@ export interface Ebook {
 
 // Note resource type
 export interface Note {
-  id: number;
+  note_id: number;
   title: string;
   description: string;
   subject: string;
@@ -411,7 +407,7 @@ export interface Note {
 
 // Question paper resource type
 export interface QuestionPaper {
-  id: number;
+  paper_id: number;
   title: string;
   subject: string;
   year: number;
@@ -448,14 +444,16 @@ export interface ResourceUploadData {
   file?: File;
 }
 export interface Student {
-  id: string;
+  user_id: string;
   name: string;
   email: string;
   phone_number: string;
   department: string;
   university_roll_number: number;
-  course_code: string;
+  course_id: string;
   library_id: string;
+  course_name?: string;
+  profile_image?: string;
   role: 'student';
 }
 
@@ -471,7 +469,7 @@ export interface UserSearchResponse {
 }
 
 export interface IssuedBook {
-  id: number | string;
+  issued_id: number | string;
   book_id: number | string;
   user_id: number | string;
   issue_date: string;
@@ -543,7 +541,6 @@ export interface UserIssuedBooksResponse {
   };
   total_fine: number;
   issued_books: Array<{
-    id: number;
     book_id: number;
     book_title: string;
     book_author: string;

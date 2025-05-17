@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Course, Notice } from '../types';
-import { Search, BookOpen, Bell, ExternalLink, LogOut, User, Menu } from 'lucide-react';
+import { Search, BookOpen, Bell, ExternalLink, LogOut, Menu } from 'lucide-react';
 import { api, API_ENDPOINTS } from '../utils/apiService';
 import { getApiBaseUrl } from '../utils/config';
 import { useAuth } from '../utils/AuthContext';
@@ -38,8 +38,9 @@ const LibraryDashboard: React.FC = () => {
         const data = await response.json();
 
         if (data && data.data) {
+          console.log('data recived', data.data);
           const courseList = data.data.map((course: any) => ({
-            id: course.id.toString(),
+            id: course.course_id.toString(),
             course_name: course.course_name || course.name,
             course_code: course.course_code || course.code,
             department: course.department,
@@ -72,6 +73,7 @@ const LibraryDashboard: React.FC = () => {
         setNoticesLoading(true);
         const response = await api.get<ResourceApiResponse<Notice[]>>(API_ENDPOINTS.NOTICES);
         const notices: Notice[] = response.data;
+        console.log('notices', notices);
         setNoticesError(null);
         
         if (notices && notices.length > 0) {
@@ -305,7 +307,7 @@ const LibraryDashboard: React.FC = () => {
                   {filteredCourses.length > 0 ? (
                     filteredCourses.map((course) => (
                       <div
-                        key={course.id}
+                        key={course.course_id}
                         className="bg-white p-6 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer"
                         onClick={() => { handleCourseSelect(course) }}
                       >

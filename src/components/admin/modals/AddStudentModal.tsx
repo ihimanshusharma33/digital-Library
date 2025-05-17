@@ -41,15 +41,14 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ isOpen, onClose, onSu
     email: '',
     phone_number: '',
     department: '',
-    university_roll_number: '',
-    course_code: ''
+    university_roll_number: 0,
+    course_id: ''
   });
 
   // Fetch courses when modal opens
   useEffect(() => {
     if (isOpen) {
       fetchCourses();
-      // Reset states when modal reopens
       setError(null);
       setSuccessResponse(null);
       setCopied(false);
@@ -82,51 +81,26 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ isOpen, onClose, onSu
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-
-    // When course changes, auto-fill department if possible
-    if (name === 'course_code') {
-      const selectedCourse = courses.find(c => c.course_code === value);
-      if (selectedCourse) {
-        setFormData(prev => ({
-          ...prev,
-          [name]: value,
-          department: selectedCourse.department
-        }));
-        return;
-      }
-    }
-
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    // Explicitly prevent default form behavior
     e.preventDefault();
-    e.stopPropagation(); // Add this to be extra safe
-    
-    // If we're already submitting, don't submit again
+    e.stopPropagation();
     if (isSubmitting) return false;
-    
     setIsSubmitting(true);
     setError(null);
 
     try {
-      // Make the API call directly (fix URL if needed)
-      const response = await api.post('/user', formData);
-      console.log("Student creation response:", response); // Debug log
-
-      // The response is the actual data object, not nested inside a data property
-      if (response && response.status === true) {
-        // Store the success response directly
-        setSuccessResponse(response);
-        console.log("Success response set:", response);
-        // Do NOT call onSuccess immediately, wait for user to acknowledge
+      // Only send course_id, not department
+      const { department, ...submitData } = formData;
+      const response: { status: boolean; message?: string; data?: any } = await api.post('/user', submitData);
+      if (response && response?.status === true) {
+        setSuccessResponse(response as StudentCreationResponse);
       } else {
-        setError(response?.message || 'Failed to add student. Please try again.');
+        setError(response.message || 'Failed to add student. Please check details and try again.');
       }
     } catch (error: any) {
-      console.error('Error adding student:', error);
-      // More detailed error handling
       if (error.response?.data) {
         setError(error.response.data.message || 'Failed to add student. Please check your input.');
       } else {
@@ -135,21 +109,10 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ isOpen, onClose, onSu
     } finally {
       setIsSubmitting(false);
     }
-    
-    return false; // Explicitly return false to prevent form submission
+    return false;
   };
 
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      email: '',
-      phone_number: '',
-      department: '',
-      university_roll_number: '',
-      course_code: ''
-    });
-    setError(null);
-  };
+
 
   const handleCopyLibraryId = () => {
     if (successResponse?.data?.library_id) {
@@ -165,7 +128,6 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ isOpen, onClose, onSu
   if (!isOpen) return null;
 
   // Filter active courses
-  const activeCourses = courses.filter(course => course.is_active === true);
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -276,13 +238,7 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ isOpen, onClose, onSu
                 </div>
               </div>
             ) : (
-              <form 
-                onSubmit={(e) => {
-                  handleSubmit(e);
-                  return false; // Extra prevention
-                }}
-                className="space-y-4"
-              >
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label htmlFor="name" className="block text-sm font-medium text-gray-700">
                     Full Name *
@@ -334,49 +290,30 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ isOpen, onClose, onSu
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="course_code" className="block text-sm font-medium text-gray-700">
-                      Course Code *
-                    </label>
-                    {coursesLoading ? (
-                      <div className="mt-1 h-12 w-full bg-gray-100 animate-pulse rounded-md"></div>
-                    ) : (
-                      <select
-                        id="course_code"
-                        name="course_code"
-                        required
-                        value={formData.course_code}
-                        onChange={handleChange}
-                        className="mt-1 block w-full h-12 p-2 border-2 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                        disabled={isSubmitting}
-                      >
-                        <option value="">Select a course</option>
-                        {activeCourses.map(course => (
-                          <option key={course.id} value={course.course_code}>
-                            {course.course_name} ({course.course_code})
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-
-                  <div>
-                    <label htmlFor="department" className="block text-sm font-medium text-gray-700">
-                      Department *
-                    </label>
-                    <input
-                      type="text"
-                      id="department"
-                      name="department"
+                <div>
+                  <label htmlFor="course_id" className="block text-sm font-medium text-gray-700">
+                    Course *
+                  </label>
+                  {coursesLoading ? (
+                    <div className="mt-1 h-12 w-full bg-gray-100 animate-pulse rounded-md"></div>
+                  ) : (
+                    <select
+                      id="course_id"
+                      name="course_id"
                       required
-                      value={formData.department}
+                      value={formData.course_id}
                       onChange={handleChange}
                       className="mt-1 block w-full h-12 p-2 border-2 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      disabled={formData.course_code !== '' || isSubmitting}
-                      placeholder="e.g. Computer Science"
-                    />
-                  </div>
+                      disabled={isSubmitting}
+                    >
+                      <option value="">Select a course</option>
+                      {courses.filter(course => course.is_active).map(course => (
+                        <option key={course.course_id} value={course.course_id}>
+                          {course.course_name} ({course.course_code})
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div>

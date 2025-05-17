@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Loader, Search } from 'lucide-react';
 import { api } from '../../../utils/apiService';
 import { Book, Student } from '../../../types';
+import { useAuth } from '../../../utils/AuthContext';
 
 interface IssueBookModalProps {
   isOpen: boolean;
@@ -101,16 +102,15 @@ const IssueBookModal: React.FC<IssueBookModalProps> = ({ isOpen, onClose, onSucc
 
     try {
       // Get current user details with guaranteed valid ID
-      const currentUser = getCurrentUser();
+      const currentUser = useAuth();
 
-      // Format data according to backend expectations
       const requestData = {
-        book_id: selectedBook.id,
-        user_id: selectedStudent.id,
+        book_id: selectedBook.book_id,
+        user_id: selectedStudent.user_id,
         issue_date: issueDate, // Today's date
         due_date: returnDate,
-        issued_by: currentUser.id, // This should now always be a valid number (never null)
-        issued_by_name: currentUser.name,
+        issued_by: currentUser.user?.user_id || 0, // Ensure 'id' exists in AuthContextType and fallback to 0 if null
+        issued_by_name: currentUser.user?.name || 'Unknown',
         remarks: remarks.trim() || undefined
       };
 
@@ -140,7 +140,9 @@ const IssueBookModal: React.FC<IssueBookModalProps> = ({ isOpen, onClose, onSucc
         onSuccess?.();
         setTimeout(() => {
           setSuccessMessage(null);
+          onClose();
         }, 2000);
+        
       } else {
         // Show specific error message if available, otherwise use generic message
         let errorMessage = 'Failed to issue book. Please try again.';
@@ -320,7 +322,7 @@ const IssueBookModal: React.FC<IssueBookModalProps> = ({ isOpen, onClose, onSucc
                         <div className="divide-y">
                           {books.map((book) => (
                             <label
-                              key={book.id}
+                              key={book.book_id}
                               className="flex items-start p-3 hover:bg-gray-50 cursor-pointer"
                             >
                               <input
@@ -427,7 +429,7 @@ const IssueBookModal: React.FC<IssueBookModalProps> = ({ isOpen, onClose, onSucc
                         <div className="divide-y">
                           {students.map((student) => (
                             <label
-                              key={student.id}
+                              key={student.user_id}
                               className="flex items-start p-3 hover:bg-gray-50 cursor-pointer"
                             >
                               <input
@@ -439,9 +441,8 @@ const IssueBookModal: React.FC<IssueBookModalProps> = ({ isOpen, onClose, onSucc
                               <div className="ml-3">
                                 <p className="font-medium">{student.name}</p>
                                 <p className="text-sm text-gray-600">
-                                  Library ID: {student.library_id || student.university_roll_number || student.university_roll_number || 'No ID'}
-                                  {student.course_code && ` • ${student.course_code}`}
-                                  {student.semester && `, Semester ${student.semester}`}
+                                  Library ID: {student.library_id  }
+                                  {student.course_id && ` • ${student.course_id}`}
                                 </p>
                                 {student.email && (
                                   <p className="text-xs text-gray-500 mt-1">{student.email}</p>
@@ -465,8 +466,8 @@ const IssueBookModal: React.FC<IssueBookModalProps> = ({ isOpen, onClose, onSucc
                       <p className="font-medium">{selectedStudent.name}</p>
                       <p className="text-sm text-gray-600">
                         Library ID: {selectedStudent.library_id || selectedStudent.university_roll_number || selectedStudent.university_roll_number || 'No ID'}
-                        {selectedStudent.course_code && ` • ${selectedStudent.course_code}`}
-                        {selectedStudent.semester && `, Semester ${selectedStudent.semester}`}
+                        {selectedStudent.course_id
+                         && ` • ${selectedStudent.course_id}`}
                       </p>
                       {selectedStudent.email && (
                         <p className="text-xs text-gray-500 mt-1">{selectedStudent.email}</p>

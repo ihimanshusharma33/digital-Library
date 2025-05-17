@@ -53,7 +53,7 @@ const CheckAuth: React.FC<CheckAuthProps> = ({
     // redirect to the appropriate dashboard
     if (isAuthenticated && token && user) {
       // Redirect based on user role
-      if (user.role === 'admin' || user.role === 'staff') {
+      if (user.role === 'admin' || user.role === 'librarian') {
         return <Navigate to="/admin" replace />;
       } else if (user.role === 'student') {
         return <Navigate to="/student" replace />;
@@ -75,7 +75,7 @@ const CheckAuth: React.FC<CheckAuthProps> = ({
   // Check role requirements if specified
   if (requiredRole) {
     const isAdmin = user.role === 'admin';
-    const isStaff = user.role === 'staff';
+    const isStaff = user.role === 'librarian';
     const isStudent = user.role === 'student';
 
     // Check if user has the required role

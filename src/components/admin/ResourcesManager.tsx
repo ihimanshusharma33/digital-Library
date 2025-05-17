@@ -49,6 +49,9 @@ const ResourcesManager: React.FC = () => {
     direction: 'ascending' | 'descending';
   }>({ key: 'uploadDate', direction: 'descending' });
 
+  const [success, setSuccess] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
   // Fetch courses from API
   useEffect(() => {
     const fetchCourses = async () => {
@@ -58,9 +61,8 @@ const ResourcesManager: React.FC = () => {
         const data = await response.json();
 
         if (data && data.status) {
-          // Format courses to maintain compatibility with existing code
           const formattedCourses = data.data.map((course: any) => ({
-            id: course.id.toString(),
+            course_id: course.course_id.toString(),
             course_code: course.course_code,
             course_name: course.course_name,
             total_semesters: course.total_semesters,
@@ -94,7 +96,8 @@ const ResourcesManager: React.FC = () => {
         console.log('API Response:', response); // Debug log to check what's returned
 
         // Check if response exists and has the expected format
-        if (response && response.status === true && response.data) {
+        if (response && response.data) {
+          console.log('Resources fetched successfully:', response.data);
           // Extract the different resource types from the response
           const ebooksData = response.data.ebooks || [];
           const notesData = response.data.notes || [];
@@ -108,7 +111,7 @@ const ResourcesManager: React.FC = () => {
 
           // Transform ebooks to Resource objects
           const ebookResources: Resource[] = ebooksData.map((item) => ({
-            id: item.id.toString(),
+            id: item.ebook_id.toString(),
             title: item.title || 'Untitled E-book',
             description: item.description || '',
             courseId: '',
@@ -119,13 +122,13 @@ const ResourcesManager: React.FC = () => {
             fileType: getFileTypeFromPath(item.file_path || ''),
             url: item.file_path || '',
             subject: '',
-            course_code: item.course_code || '',
+            course_id: item.course_id || '',
             author: item.author || ''
           }));
 
           // Transform notes to Resource objects
           const noteResources: Resource[] = notesData.map((item) => ({
-            id: item.id.toString(),
+            id: item.note_id.toString(),
             title: item.title || 'Untitled Note',
             description: item.description || '',
             courseId: '',
@@ -137,16 +140,17 @@ const ResourcesManager: React.FC = () => {
             url: item.file_path || '',
             subject: item.subject || '',
             course_code: item.course_code || '',
-            author: item.author || ''
+            author: item.author || '',
+            course_id: item.course_id || '',
           }));
 
-          // Transform question papers to Resource objects
+          // Ensure the category is consistent
           const questionPaperResources: Resource[] = questionPapersData.map((item) => ({
-            id: item.id.toString(),
+            id: item.paper_id.toString(),
             title: item.title || 'Untitled Question Paper',
             description: item.description || '',
-            courseId: '',
-            category: 'questions', // Question papers are mapped to questions category
+            course_id: item.course_id || '', // Ensure course_id is correctly set
+            category: 'questions', // Ensure category matches the filter
             semester: item.semester || 1,
             uploadDate: item.created_at || new Date().toISOString(),
             uploadedBy: item.uploaded_by || 'Unknown',
@@ -155,7 +159,6 @@ const ResourcesManager: React.FC = () => {
             subject: item.subject || '',
             year: item.year?.toString() || new Date().getFullYear().toString(),
             exam_type: item.exam_type || 'midterm',
-            course_code: item.course_code || ''
           }));
 
           // Combine all resource types into a single array
@@ -214,11 +217,26 @@ const ResourcesManager: React.FC = () => {
       result = result.filter(resource => resource.category === filterCategory);
     }
 
-    // Apply course filter - now using course_code
+    // Apply course filter with better debugging and property checking
     if (filterCourse) {
-      const selectedCourse = courses.find(course => course.id.toString() === filterCourse);
-      if (selectedCourse && selectedCourse.course_code) {
-        result = result.filter(resource => resource.course_code === selectedCourse.course_code);
+      console.log('Filtering by course:', filterCourse);
+      
+      // Find the selected course
+      const selectedCourse = courses.find(course => 
+        course.course_id?.toString() === filterCourse);
+      
+      console.log('Selected course:', selectedCourse);
+      
+      // If we found a course, filter resources that match either course_id or course_code
+      if (selectedCourse) {
+        const courseId = selectedCourse.course_id?.toString();
+        console.log('Course ID is selected', courseId);
+        console.log(result);
+        result = result.filter(resource =>  resource.id === courseId);
+        
+        console.log(`Filtered to ${result.length} resources`);
+      } else {
+        console.log('No matching course found');
       }
     }
 
@@ -282,13 +300,13 @@ const ResourcesManager: React.FC = () => {
   // Modify the handleDeleteResource function to use notifications and show delete state
   const handleDeleteResource = async (id: string, resourceType: string) => {
     try {
-      // Set the deleting state to show feedback to the user
       setDeletingResource(id);
+      setSuccess(null);
+      setError(null);
 
       let response;
       let resourceTypeName = '';
 
-      // Call different API endpoints based on resource type
       switch (resourceType) {
         case 'textbook':
           resourceTypeName = 'E-book';
@@ -306,46 +324,25 @@ const ResourcesManager: React.FC = () => {
           throw new Error('Unknown resource type');
       }
 
-      // Check for success field in API response - this is the key fix
-      if (response && response.success === true) {
-        // On successful API delete, update the UIa
+      if (response && response.status) {
+        setSuccess(`${resourceTypeName} deleted successfully.`);
         const updatedResources = originalResources.filter(resource => resource.id !== id);
         setOriginalResources(updatedResources);
-        applyFilters();
-
-        // Show success notification
-        setNotification({
-          type: 'success',
-          message: `${resourceTypeName} deleted successfully`
-        });
-
-        // Clear the notification after a few seconds
-        setTimeout(() => {
-          setNotification(null);
-        }, 5000);
+        setFilteredResources(updatedResources);
       } else {
+        console.log('coming in else block',response)
         throw new Error(response?.message || `Failed to delete ${resourceTypeName.toLowerCase()}`);
       }
     } catch (error) {
-      console.error('Error deleting resource:', error);
-
-      // Show error notification
-      setNotification({
-        type: 'error',
-        message: error instanceof Error ? error.message : 'Failed to delete resource. Please try again.'
-      });
-
-      // Clear the notification after a few seconds
-      setTimeout(() => {
-        setNotification(null);
-      }, 5000);
+      setError(error instanceof Error ? error.message : 'Failed to delete resource. Please try again.');
     } finally {
-      // Clear the deleting state
       setDeletingResource(null);
     }
   };
 
   const handleSaveResource = (resourceData: Omit<Resource, 'id'>) => {
+    setSuccess('Resource saved successfully!');
+    setError(null);
     if (currentResource) {
       // Update existing resource
       const updatedOriginalResources = originalResources.map(resource =>
@@ -401,32 +398,36 @@ const ResourcesManager: React.FC = () => {
     setCurrentResource(null);
   };
 
+  const getCourseDisplay = (resource: Resource, courseList: Course[]) => {
+    // If resource has a direct course name, use it
+    if (resource.subject) return resource.subject;
+    
+    // Try to find matching course by ID or code
+    const matchingCourse = courseList.find(course => 
+      course.course_id.toString() === resource.course_id
+    );
+    
+    // If found, return a formatted display
+    if (matchingCourse) {
+      return `${matchingCourse.course_name} (${matchingCourse.course_code})`;
+    }
+    
+    // Fallback to any course ID info available
+    return resource.course_id || resource.course_id || 'No Course';
+  };
+
   return (
     <div className="max-w-7xl mx-auto">
-      {/* Notification Banner */}
-      {notification && (
-        <div className={`mb-6 p-4 rounded-md ${notification.type === 'success' ? 'bg-green-50' : 'bg-red-50'}`}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              {notification.type === 'success' ? (
-                <CheckCircle className="h-5 w-5 mr-2 text-green-500" />
-              ) : (
-                <AlertCircle className="h-5 w-5 mr-2 text-red-500" />
-              )}
-              <div className={`ml-1 text-sm font-medium ${notification.type === 'success' ? 'text-green-700' : 'text-red-700'}`}>
-                {notification.message}
-              </div>
-            </div>
-            <button
-              onClick={() => setNotification(null)}
-              className="text-gray-400 hover:text-gray-500"
-            >
-              <span className="sr-only">Dismiss</span>
-              <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
-            </button>
-          </div>
+      {success && (
+        <div className="mb-6 p-4 rounded-md bg-green-50 text-green-700 flex items-center">
+          <CheckCircle className="h-5 w-5 mr-2 text-green-500" /> {success}
+          <button onClick={() => setSuccess(null)} className="ml-auto text-green-700 hover:text-green-900">&times;</button>
+        </div>
+      )}
+      {error && (
+        <div className="mb-6 p-4 rounded-md bg-red-50 text-red-700 flex items-center">
+          <AlertCircle className="h-5 w-5 mr-2 text-red-500" /> {error}
+          <button onClick={() => setError(null)} className="ml-auto text-red-700 hover:text-red-900">&times;</button>
         </div>
       )}
 
@@ -488,12 +489,14 @@ const ResourcesManager: React.FC = () => {
                 <option value="">All Courses</option>
                 {coursesLoading ? (
                   <option disabled>Loading courses...</option>
-                ) : (
+                ) : courses.length > 0 ? (
                   courses.map(course => (
-                    <option key={course.id} value={course.id}>
-                      {course.course_code}
+                    <option key={course.course_id} value={course.course_id}>
+                      {course.course_name} ({course.course_code})
                     </option>
                   ))
+                ) : (
+                  <option disabled>No courses available</option>
                 )}
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
@@ -585,8 +588,8 @@ const ResourcesManager: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredResources.map((resource) => (
-                    <tr key={resource.id} className="hover:bg-gray-50">
+                  {filteredResources.map((resource,index) => (
+                    <tr key={index} className="hover:bg-gray-50">
                       <td className="px-6 py-4">
                         <div className="flex items-center">
                           <div className="w-10 h-10 flex-shrink-0 mr-3">
@@ -599,9 +602,7 @@ const ResourcesManager: React.FC = () => {
                               {resource.title}
                             </p>
                             <p className="text-sm text-gray-500 truncate">
-                              {resource.course_code ||
-                                courses.find(course => course.code === resource.course_code || course.course_code === resource.course_code)?.course_code ||
-                                'Unknown Course'}
+                              {getCourseDisplay(resource, courses)}
                             </p>
                           </div>
                         </div>

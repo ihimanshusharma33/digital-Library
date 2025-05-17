@@ -8,13 +8,15 @@ import {
   BookMarked, 
   Bell, 
   LogOut,
-  GraduationCap
+  GraduationCap,
+  User2
 } from 'lucide-react';
 import { useAuth } from '../../utils/AuthContext';
 import BookStocksManager from './BookStocksManager';
 import CoursesManager from './CoursesManager';
 import ResourcesManager from './ResourcesManager';
 import NoticesManager from './NoticesManager';
+import StudentManager from './StudentManger';
 import AdminDashboard from './Dashboard'; // Assuming you have a dashboard component
 
 const AdminLayout: React.FC = () => {
@@ -56,6 +58,11 @@ const AdminLayout: React.FC = () => {
       key: 'books', 
       icon: <BookOpen className="w-5 h-5" /> 
     },
+    {
+      name: 'Students',
+      key: 'students',
+      icon: <User2 className="w-5 h-5" />
+    }
   ];
 
   // Render the active component based on selected menu item
@@ -71,6 +78,8 @@ const AdminLayout: React.FC = () => {
         return <NoticesManager />;
       case 'books':
         return <BookStocksManager />;
+      case 'students':
+        return <StudentManager />;
       default:
         return <AdminDashboard />;
     }

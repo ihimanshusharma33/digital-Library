@@ -678,14 +678,16 @@ export const api = {
    */
   createNotice: (data: {
     title: string;
-    content: string;
-    is_active: boolean;
-    publish_date: string;
-    end_date: string;
+    notification_type: string;
+    description?: string;
+    user_id?: string | number;
+    attachment_url?: string;
+    attachment_name?: string;
+    attachment_type?: string;
   }) => 
     httpClient.post<ApiResponse<Notice>>(
-      API_ENDPOINTS.NOTICES, 
-      data,
+      API_ENDPOINTS.NOTICES,
+      data, // send as JSON, not FormData
       { clearCachePattern: API_ENDPOINTS.NOTICES }
     ),
   
@@ -695,15 +697,9 @@ export const api = {
    * @param data Updated notice data
    * @returns Promise with the updated notice
    */
-  updateNotice: (id: number | string, data: {
-    title?: string;
-    content?: string;
-    is_active?: boolean;
-    publish_date?: string;
-    end_date?: string;
-  }) => 
+  updateNotice: (id: number | string, data: any) =>
     httpClient.put<ApiResponse<Notice>>(
-      `${API_ENDPOINTS.NOTICES}/${id}`, 
+      `${API_ENDPOINTS.NOTICES}/${id}`,
       data,
       { clearCachePattern: API_ENDPOINTS.NOTICES }
     ),
@@ -807,6 +803,14 @@ export const api = {
     studentInfo?: Record<string, any>;
   }) =>
     httpClient.post<ApiResponse<{ documentUrl: string }>>(`${API_ENDPOINTS.DOCUMENTS}/noc`, data),
+  
+  /* ---- Books API (additional methods) ------------------------------- */
+  createBook: (data: Omit<Book, 'book_id'>) =>
+    httpClient.post<ApiResponse<Book>>(API_ENDPOINTS.BOOKS, data),
+  updateBook: (id: string, data: Book) =>
+    httpClient.put<ApiResponse<Book>>(`${API_ENDPOINTS.BOOKS}/${id}`, data),
+  deleteBook: (id: string) =>
+    httpClient.delete<ApiResponse<Book>>(`${API_ENDPOINTS.BOOKS}/${id}`),
 };
 
 // Export a method to check or change the environment at runtime

@@ -1,5 +1,4 @@
 // Import the API base URL utility
-import { logout } from './AuthContext';
 import { getApiBaseUrl } from './config';
 import { API_ENDPOINTS } from './apiService';
 
@@ -263,7 +262,7 @@ export const clearInterceptors = (type?: 'request' | 'response' | 'error'): void
 // Add an error handler for authentication issues
 clearInterceptors('error');
 
-addErrorHandler(async (error, url, config) => {
+addErrorHandler(async (error) => {
   // Check if this is a 401 error
   if (error.status === 401 || 
       (error.response && error.response.status === 401) ||

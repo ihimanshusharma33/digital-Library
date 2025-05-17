@@ -108,7 +108,7 @@ const CourseSelection: React.FC<CourseSelectionProps> = ({ onCourseSelect }) => 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredCourses.map((course) => (
                 <div
-                  key={course.id}
+                  key={course.course_id}
                   className="bg-white p-6 rounded-lg border hover:shadow-md transition-shadow cursor-pointer"
                   onClick={() => onCourseSelect(course)}
                 >

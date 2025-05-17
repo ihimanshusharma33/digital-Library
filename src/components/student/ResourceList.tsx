@@ -84,10 +84,10 @@ const ResourceList: React.FC = () => {
 
     // Fetch resources on component mount and when user changes
     useEffect(() => {
-        if (user?.id) {
+        if (user?.user_id) {
             fetchUserResources();
         }
-    }, [user?.id]);
+    }, [user?.user_id]);
 
     // Process the fetched resources into a flat array for display
     useEffect(() => {
@@ -117,7 +117,7 @@ const ResourceList: React.FC = () => {
     }, [resourceData]);
 
     const fetchUserResources = async () => {
-        if (!user?.id) {
+        if (!user?.user_id) {
             setError("User ID not found. Please log in.");
             setLoading(false);
             return;
@@ -127,7 +127,7 @@ const ResourceList: React.FC = () => {
             setLoading(true);
             setError(null);
 
-            const response = await api.get<{ status: boolean; data: ResourceData }>(`/resources?user_id=${user.id}`);
+            const response = await api.get<{ status: boolean; data: ResourceData }>(`/resources?user_id=${user.user_id}`);
 
             if (response.data && response.status) {
                 console.log("User resources data:", response.data);
@@ -209,11 +209,6 @@ const ResourceList: React.FC = () => {
         }
     };
 
-    const viewResourceDetails = (resource: DisplayResource) => {
-        navigate(`/student/resources/${resource.type}/${resource.id}`, {
-            state: { resource }
-        });
-    };
 
     const getResourceCount = (): number => {
         return resourceData.ebooks.length + resourceData.notes.length + resourceData.question_papers.length;

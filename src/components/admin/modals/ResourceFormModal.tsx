@@ -30,7 +30,7 @@ const ResourceFormModal: React.FC<ResourceFormModalProps> = ({
   const [formData, setFormData] = useState<{
     title: string;
     description: string;
-    courseId: string;
+    course_id: string;
     category: 'textbook' | 'notes' | 'questions';
     semester: number;
     file?: File | null;
@@ -43,7 +43,7 @@ const ResourceFormModal: React.FC<ResourceFormModalProps> = ({
   }>({
     title: '',
     description: '',
-    courseId: '',
+    course_id: '',
     category: 'textbook',
     url: '',
     semester: 1,
@@ -54,6 +54,9 @@ const ResourceFormModal: React.FC<ResourceFormModalProps> = ({
     year: new Date().getFullYear(),
     exam_type: 'midterm',
   });
+  const [success, setSuccess] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
 
   // Initialize form data when resource or modal open state changes
   useEffect(() => {
@@ -61,7 +64,7 @@ const ResourceFormModal: React.FC<ResourceFormModalProps> = ({
       setFormData({
         title: resource?.title || '',
         description: resource?.description || '',
-        courseId: resource?.courseId || courses[0]?.id?.toString() || '',
+        course_id: resource?.course_id || '0',
         category: (resource?.category as 'textbook' | 'notes' | 'questions') || 'textbook',
         url: resource?.url || '',
         semester: resource?.semester || 1,
@@ -73,8 +76,8 @@ const ResourceFormModal: React.FC<ResourceFormModalProps> = ({
         exam_type: (resource?.exam_type as any) || 'midterm',
       });
       setFilePreview(resource?.url || null);
-      setNotification(null);
-      setFileError(null);
+      setSuccess(null);
+      setError(null);
       setVarOcg('idle');
     }
   }, [isOpen, resource, courses]);
@@ -82,11 +85,7 @@ const ResourceFormModal: React.FC<ResourceFormModalProps> = ({
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [varOcg, setVarOcg] = useState<'idle' | 'saving' | 'error'>('idle');
-  const [notification, setNotification] = useState<{
-    type: 'success' | 'error';
-    message: string;
-  } | null>(null);
-
+ 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     
@@ -97,370 +96,93 @@ const ResourceFormModal: React.FC<ResourceFormModalProps> = ({
         : value
     }));
 
-    // Clear notification when user makes changes
-    if (notification) {
-      setNotification(null);
+    if (success) {
+      setSuccess(null);
+    }
+    if (error) {
+      setError(null);
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files && e.target.files[0];
-    setFileError(null);
-    
     if (selectedFile) {
-      // Check file size (limit to 10MB)
-      if (selectedFile.size > 10 * 1024 * 1024) {
-        setFileError('File size should not exceed 10MB');
-        return;
-      }
-      
-      // Automatically detect file type
-      let detectedFileType: 'pdf' | 'doc' | 'ppt' | 'xlsx' | 'image' | 'other' = 'other';
-      const fileExtension = selectedFile.name.split('.').pop()?.toLowerCase();
-      
-      if (fileExtension === 'pdf') detectedFileType = 'pdf';
-      else if (['doc', 'docx'].includes(fileExtension || '')) detectedFileType = 'doc';
-      else if (['ppt', 'pptx'].includes(fileExtension || '')) detectedFileType = 'ppt';
-      else if (['xls', 'xlsx'].includes(fileExtension || '')) detectedFileType = 'xlsx';
-      else if (['jpg', 'jpeg', 'png', 'gif'].includes(fileExtension || '')) detectedFileType = 'image';
-      
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        fileType: detectedFileType,
-        file: selectedFile
+        file: selectedFile, // Update the file in formData
       }));
-      
-      // Create a preview URL for the file
-      const previewUrl = URL.createObjectURL(selectedFile);
-      setFilePreview(previewUrl);
+      setFilePreview(URL.createObjectURL(selectedFile)); // Generate a preview URL
+      console.log('Selected File:', selectedFile.name); // Debug log
     } else {
-      setFormData(prev => ({ ...prev, file: null }));
+      setFormData((prev) => ({ ...prev, file: null }));
       setFilePreview(null);
+      console.error('No file selected');
     }
   };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Reset notifications and errors before starting validation
-    setNotification(null);
-    setFileError(null);
-    
-    // ------ Form Validation Based on API Requirements ------
-    const errors = [];
-    
-    // Common validation for all resource types
-    if (!formData.title.trim()) {
-      errors.push('Title is required');
-    } else if (formData.title.length > 255) {
-      errors.push('Title must be less than 255 characters');
+    const resourceType =
+      formData.category === 'textbook'
+        ? 'ebooks'
+        : formData.category === 'notes'
+        ? 'notes'
+        : 'oldquestion';
+
+    const data: Record<string, any> = {
+      title: formData.title,
+      description: formData.description,
+      course_id: formData.course_id,
+      semester: formData.semester.toString(),
+      subject: formData.subject,
+      author: formData.uploadedBy,
+      year: formData.year.toString(),
+    };
+
+    if (resourceType === 'oldquestion') {
+      data.exam_type = formData.exam_type;
     }
-    
-    if (!formData.courseId) {
-      errors.push('Please select a course');
-    }
-    
-    if (formData.semester < 1) {
-      errors.push('Semester must be at least 1');
-    }
-    
-    // Validate subject field which is required by all APIs
-    if (!formData.subject.trim()) {
-      errors.push('Subject is required');
-    } else if (formData.subject.length > 255) {
-      errors.push('Subject must be less than 255 characters');
-    }
-    
-    // Resource type specific validation
-    if (formData.category === 'notes') {
-      if (!formData.uploadedBy.trim()) {
-        errors.push('Author is required for notes');
-      } else if (formData.uploadedBy.length > 255) {
-        errors.push('Author name must be less than 255 characters');
-      }
-    } else if (formData.category === 'questions') {
-      if (!formData.year) {
-        errors.push('Year is required for question papers');
-      } else if (formData.year < 1900 || formData.year > new Date().getFullYear()) {
-        errors.push(`Year must be between 1900 and ${new Date().getFullYear()}`);
-      }
-      
-      // Validate exam_type for question papers
-      if (!['midterm', 'final', 'supplementary', 'other'].includes(formData.exam_type)) {
-        errors.push('Please select a valid exam type');
-      }
-    } else if (formData.category === 'textbook') {
-      // E-book specific validation
-      if (!formData.uploadedBy.trim()) {
-        errors.push('Author is required for e-books');
-      } else if (formData.uploadedBy.length > 255) {
-        errors.push('Author name must be less than 255 characters');
-      }
-    }
-    
-    // File validation for new resources
-    if (!isEditing && !formData.file) {
-      errors.push('Please upload a file for the resource');
-    }
-    
-    // Display the first error if any
-    if (errors.length > 0) {
-      setNotification({
-        type: 'error',
-        message: errors[0]
-      });
-      return;
-    }
-    
-    // Set the saving state to show loading animation
-    setVarOcg('saving');
-    
+
+    console.log('Data being sent to backend:', data); // Debug log
+
     try {
-      // Get course code from selected course
-      const selectedCourse = courses.find(course => course.id.toString() === formData.courseId);
-      const course_code = selectedCourse?.course_code || '';
-      
-      if (!course_code) {
-        throw new Error('Could not determine course code. Please select a valid course.');
+      setVarOcg('saving');
+      setSuccess(null);
+      setError(null);
+
+      let response;
+      if (isEditing) {
+        if (resourceType === 'ebooks') {
+          response = await api.updateEbook(resource?.book_id || resource?.id || '', data, formData.file || undefined);
+        } else if (resourceType === 'notes') {
+          response = await api.updateNote(resource?.notes_id || resource?.id || '', data, formData.file || undefined);
+        } else if (resourceType === 'oldquestion') {
+          response = await api.updateQuestionPaper(resource?.paper_id || resource?.id || '', data, formData.file || undefined);
+        }
+      } else {
+        if (resourceType === 'ebooks') {
+          response = await api.uploadEbook(data, formData.file || undefined);
+        } else if (resourceType === 'notes') {
+          response = await api.uploadNotes(data, formData.file || undefined);
+        } else if (resourceType === 'oldquestion') {
+          response = await api.uploadQuestionPaper(data, formData.file || undefined);
+        }
       }
-      
-      // If a file is selected, handle the upload based on category
-      if (formData.file) {
-        try {
-          // Different handling based on resource category
-          if (formData.category === 'textbook') {
-            // For e-books, use the dedicated ebooks API endpoint
-            const ebookData = {
-              title: formData.title.trim(),
-              description: formData.description.trim(),
-              author: formData.uploadedBy.trim(),
-              course_code: course_code,
-              semester: formData.semester,
-              subject: formData.subject.trim(),
-              is_verified: true
-            };
-            
-            // Use the ebooks API endpoint for e-books
-            const response = await api.uploadEbook(ebookData, formData.file);
-            
-            if (response && (response.success === true || response.status)) {
-              setVarOcg('idle');
-              setNotification({
-                type: 'success',
-                message: `${isEditing ? 'Updated' : 'Added'} e-book successfully!`
-              });
-              
-              setTimeout(() => {
-                // Create a Resource object from the backend response and the form data
-                const frontendResource: Omit<Resource, 'id'> = {
-                  title: formData.title.trim(),
-                  description: formData.description.trim(),
-                  courseId: formData.courseId,
-                  category: formData.category,
-                  semester: formData.semester,
-                  uploadDate: new Date().toISOString(),
-                  uploadedBy: formData.uploadedBy.trim(),
-                  fileType: formData.fileType,
-                  url: (response.data as { file_path: string })?.file_path || '',
-                  subject: formData.subject,
-                  course_code: course_code // Ensure course_code is included
-                };
-                
-                onSave(frontendResource);
-                // Don't close the modal immediately on success, let the user see the success message
-                setTimeout(() => onClose(), 1500);
-              }, 500);
-            } else {
-              throw new Error(response?.message || 'Failed to save e-book. Server returned an error.');
-            }
-          } else if (formData.category === 'notes') {
-            // For notes, use the notes API endpoint
-            const notesData = {
-              title: formData.title.trim(),
-              description: formData.description.trim(),
-              author: formData.uploadedBy.trim(),
-              course_code: course_code,
-              semester: formData.semester,
-              subject: formData.subject.trim()
-            };
 
-            // Use the notes API endpoint
-            const response = await api.uploadNotes(notesData, formData.file);
-            
-            if (response && (response.success === true || response.status)) {
-              setVarOcg('idle');
-              setNotification({
-                type: 'success',
-                message: `${isEditing ? 'Updated' : 'Added'} notes successfully!`
-              });
-              
-              setTimeout(() => {
-                const frontendResource: Omit<Resource, 'id'> = {
-                  title: formData.title.trim(),
-                  description: formData.description.trim(),
-                  courseId: formData.courseId,
-                  category: formData.category,
-                  semester: formData.semester,
-                  uploadDate: new Date().toISOString(),
-                  uploadedBy: formData.uploadedBy.trim(),
-                  fileType: formData.fileType,
-                  url: (response.data as { file_path: string })?.file_path || '',
-                  subject: formData.subject,
-                  course_code: course_code // Ensure course_code is included
-                };
-                
-                onSave(frontendResource);
-                // Don't close the modal immediately on success, let the user see the success message
-                setTimeout(() => onClose(), 1500);
-              }, 500);
-            } else {
-              throw new Error(response?.message || 'Failed to save notes. Server returned an error.');
-            }
-          } else if (formData.category === 'questions') {
-            // For question papers, use the oldquestion API endpoint
-            const questionData = {
-              title: formData.title.trim(),
-              description: formData.description.trim(),
-              author: formData.uploadedBy.trim(),
-              course_code: course_code,
-              semester: formData.semester,
-              subject: formData.subject.trim(),
-              exam_type: formData.exam_type, // Include exam_type in the API request
-              year: formData.year.toString()
-            };
-
-            // Use the question papers API endpoint
-            const response = await api.uploadQuestionPaper(questionData, formData.file);
-            
-            if (response && (response.success === true || response.status )) {
-              setVarOcg('idle');
-              setNotification({
-                type: 'success',
-                message: `${isEditing ? 'Updated' : 'Added'} question paper successfully!`
-              });
-              
-              setTimeout(() => {
-                const frontendResource: Omit<Resource, 'id'> = {
-                  title: formData.title.trim(),
-                  description: formData.description.trim(),
-                  courseId: formData.courseId,
-                  category: formData.category,
-                  semester: formData.semester,
-                  uploadDate: new Date().toISOString(),
-                  uploadedBy: formData.uploadedBy.trim(),
-                  fileType: formData.fileType,
-                  url: (response.data as { file_path: string })?.file_path || '',
-                  subject: formData.subject,
-                  exam_type: formData.exam_type, // Include in the frontend resource as well
-                  year: formData.year.toString(),
-                  course_code: course_code // Ensure course_code is included
-                };
-                
-                onSave(frontendResource);
-                // Don't close the modal immediately on success, let the user see the success message
-                setTimeout(() => onClose(), 1500);
-              }, 500);
-            } else {
-              throw new Error(response?.message || 'Failed to save question paper. Server returned an error.');
-            }
-          }
-        } catch (uploadError) {
-          setVarOcg('error');
-          throw new Error(uploadError instanceof Error ? uploadError.message : 'Failed to upload resource. Please try again.');
-        }
-      } else if (isEditing) {
-        // Handle update logic for editing with or without new file upload
-        try {
-          const resourceData = {
-            title: formData.title.trim(),
-            description: formData.description.trim(),
-            author: formData.uploadedBy.trim(),
-            course_code: course_code,
-            semester: formData.semester,
-            subject: formData.subject.trim()
-          };
-
-          // Add category-specific fields
-          if (formData.category === 'questions') {
-            Object.assign(resourceData, {
-              exam_type: formData.exam_type,
-              year: formData.year.toString()
-            });
-          }
-
-          // Get the resource ID
-          const resourceId = resource?.id;
-          let response;
-
-          if (!resourceId) {
-            throw new Error('Resource ID is missing for update operation');
-          }
-
-          // Call different API endpoints based on resource type
-          switch (formData.category) {
-            case 'textbook':
-              response = await api.updateEbook(resourceId, resourceData, formData.file || undefined);
-              break;
-            case 'notes':
-              response = await api.updateNote(resourceId, resourceData, formData.file || undefined);
-              break;
-            case 'questions':
-              response = await api.updateQuestionPaper(resourceId, resourceData, formData.file || undefined);
-              break;
-            default:
-              throw new Error('Unknown resource type');
-          }
-          
-          if (response && (response.success === true || response.status)) {
-            setVarOcg('idle');
-            setNotification({
-              type: 'success',
-              message: `Updated resource successfully!`
-            });
-            
-            setTimeout(() => {
-              // Create resource object using updated data
-              const frontendResource: Omit<Resource, 'id'> = {
-                title: formData.title.trim(),
-                description: formData.description.trim(),
-                courseId: formData.courseId,
-                category: formData.category,
-                semester: formData.semester,
-                uploadDate: new Date().toISOString(),
-                uploadedBy: formData.uploadedBy.trim(),
-                fileType: formData.fileType,
-                url: formData.file ? (response.data as { file_path: string })?.file_path || '' : resource?.url || '',
-                subject: formData.subject,
-                course_code: course_code,
-                year: formData.category === 'questions' ? formData.year.toString() : undefined,
-                exam_type: formData.category === 'questions' ? formData.exam_type : undefined
-              };
-              
-              onSave(frontendResource);
-              // Don't close the modal immediately on success, let the user see the success message
-              setTimeout(() => onClose(), 1500);
-            }, 500);
-          } else {
-            throw new Error(response?.message || 'Failed to update resource');
-          }
-        } catch (error) {
-          setVarOcg('error');
-          console.error('Error updating resource:', error);
-          setNotification({
-            type: 'error',
-            message: error instanceof Error ? error.message : 'Failed to update resource. Please try again.'
-          });
-        }
+      if (response?.status) {
+        setSuccess(isEditing ? 'Resource updated successfully!' : 'Resource added successfully!');
+        onSave(response.data as Omit<Resource, 'id'>);
+      } else {
+        throw new Error(response?.message || 'Failed to save resource');
       }
     } catch (error) {
-      setVarOcg('error');
-      console.error('Error saving resource:', error);
-      setNotification({
-        type: 'error',
-        message: error instanceof Error ? error.message : 'Failed to save resource. Please try again.'
-      });
+      setError(error instanceof Error ? error.message : 'Failed to save resource');
+    } finally {
+      setVarOcg('idle');
     }
   };
+
 
   const triggerFileInput = () => {
     if (fileInputRef.current) {
@@ -469,7 +191,7 @@ const ResourceFormModal: React.FC<ResourceFormModalProps> = ({
   };
   
   const removeSelectedFile = () => {
-    setFormData(prev => ({ ...prev, file: null }));
+    setFormData((prev) => ({ ...prev, file: null }));
     setFilePreview(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -481,317 +203,321 @@ const ResourceFormModal: React.FC<ResourceFormModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 transition-opacity" onClick={onClose}>
+        {/* Overlay */}
+        <div
+          className="fixed inset-0 transition-opacity"
+          aria-hidden="true"
+        >
           <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
         </div>
-
         <span className="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
-
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full">
+        {/* Modal content */}
+        <div
+          className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all my-8 sm:align-middle max-w-3xl w-full"
+          onClick={e => e.stopPropagation()} 
+        >
           <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-            <h3 className="text-lg font-medium leading-6 text-gray-900 mb-4">
-              {isEditing ? 'Edit Digital Resource' : 'Add New Digital Resource'}
-            </h3>
-            
-            {notification && (
-              <div className={`mb-4 p-4 rounded-md ${notification.type === 'success' ? 'bg-green-50' : 'bg-red-50'}`}>
-                <div className="flex items-center">
-                  {notification.type === 'success' ? (
-                    <CheckCircle className="h-5 w-5 mr-2 text-green-500" />
-                  ) : (
-                    <AlertCircle className="h-5 w-5 mr-2 text-red-500" />
-                  )}
-                  <div className={`ml-1 text-sm font-medium ${notification.type === 'success' ? 'text-green-700' : 'text-red-700'}`}>
-                    {notification.message}
+            <div className="flex  w-full">
+              <div className="mt-3  w-full ">
+                <h3 className="text-lg font-medium leading-6 text-gray-900 mb-4">
+                  {isEditing ? 'Edit Digital Resource' : 'Add New Digital Resource'}
+                </h3>
+                {success && (
+                  <div className="mb-4 p-3 rounded bg-green-100 text-green-800 flex items-center">
+                    <CheckCircle className="w-5 h-5 mr-2" /> {success}
                   </div>
-                </div>
-              </div>
-            )}
-            
-            <form onSubmit={handleSubmit}>
-              <div className="mb-4">
-                <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-                  Title
-                </label>
-                <input
-                  type="text"
-                  id="title"
-                  name="title"
-                  value={formData.title}
-                  onChange={handleChange}
-                  required
-                  disabled={varOcg === 'saving'}
-                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-              
-              <div className="mb-4">
-                <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-                  Description
-                </label>
-                <textarea
-                  id="description"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                  rows={3}
-                  disabled={varOcg === 'saving'}
-                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label htmlFor="courseId" className="block text-sm font-medium text-gray-700 mb-1">
-                    Course
-                  </label>
-                  <select
-                    id="courseId"
-                    name="courseId"
-                    value={formData.courseId}
-                    onChange={handleChange}
-                    required
-                    disabled={varOcg === 'saving'}
-                    className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    {courses && courses.length > 0 ? (
-                      courses.map(course => (
-                        <option key={course.id} value={course.id}>
-                          {course.course_code}
-                        </option>
-                      ))
-                    ) : (
-                      <option value="" disabled>No courses available</option>
-                    )}
-                  </select>
-                </div>
-                
-                <div>
-                  <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
-                    Category
-                  </label>
-                  <select
-                    id="category"
-                    name="category"
-                    value={formData.category}
-                    onChange={handleChange}
-                    required
-                    disabled={varOcg === 'saving'}
-                    className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="textbook">E-Book</option>
-                    <option value="notes">Notes</option>
-                    <option value="questions">Questions</option>
-                  </select>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label htmlFor="fileType" className="block text-sm font-medium text-gray-700 mb-1">
-                    File Type
-                  </label>
-                  <select
-                    id="fileType"
-                    name="fileType"
-                    value={formData.fileType}
-                    onChange={handleChange}
-                    required
-                    disabled={varOcg === 'saving'}
-                    className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="pdf">PDF</option>
-                    <option value="doc">DOC</option>
-                    <option value="ppt">PPT</option>
-                    <option value="xlsx">XLSX</option>
-                    <option value="image">Image</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label htmlFor="semester" className="block text-sm font-medium text-gray-700 mb-1">
-                    Semester
-                  </label>
-                  <select
-                    id="semester"
-                    name="semester"
-                    value={formData.semester}
-                    onChange={handleChange}
-                    required
-                    disabled={varOcg === 'saving'}
-                    className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    {[1, 2, 3, 4, 5, 6, 7, 8].map((semester) => (
-                      <option key={semester} value={semester}>
-                        Semester {semester}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              
-              <div className="mb-4">
-                <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-1">
-                  Subject <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  id="subject"
-                  name="subject"
-                  value={formData.subject}
-                  onChange={handleChange}
-                  required
-                  disabled={varOcg === 'saving'}
-                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="e.g., Mathematics, Computer Science, Physics, etc."
-                />
-              </div>
-              
-              {(formData.category === 'textbook' || formData.category === 'notes') && (
-                <div className="mb-4">
-                  <label htmlFor="uploadedBy" className="block text-sm font-medium text-gray-700 mb-1">
-                    Author <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    id="uploadedBy"
-                    name="uploadedBy"
-                    value={formData.uploadedBy}
-                    onChange={handleChange}
-                    required
-                    disabled={varOcg === 'saving'}
-                    className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="e.g., John Doe, Jane Smith, etc."
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    {formData.category === 'textbook' ? 'Author of the e-book' : 'Author/creator of the notes'}
-                  </p>
-                </div>
-              )}
-              
-              {formData.category === 'questions' && (
-                <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">Question Paper Details</h4>
+                )}
+                {error && (
+                  <div className="mb-4 p-3 rounded bg-red-100 text-red-800 flex items-center">
+                    <AlertCircle className="w-5 h-5 mr-2" /> {error}
+                  </div>
+                )}
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  {/* Title */}
+                  <div>
+                    <label htmlFor="title" className="block text-sm font-medium text-gray-700">
+                      Title <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="title"
+                      name="title"
+                      value={formData.title}
+                      onChange={handleChange}
+                      required
+                      disabled={varOcg === 'saving'}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Enter the resource title"
+                    />
+                  </div>
+
+                  {/* Description */}
+                  <div>
+                    <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+                      Description
+                    </label>
+                    <textarea
+                      id="description"
+                      name="description"
+                      value={formData.description}
+                      onChange={handleChange}
+                      rows={3}
+                      disabled={varOcg === 'saving'}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Provide a brief description of the resource"
+                    />
+                  </div>
+
+                  {/* Course and Category */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Course */}
                     <div>
-                      <label htmlFor="year" className="block text-sm font-medium text-gray-700 mb-1">
-                        Year
-                      </label>
-                      <input
-                        type="number"
-                        id="year"
-                        name="year"
-                        min="1990"
-                        max={new Date().getFullYear()}
-                        value={formData.year}
-                        onChange={handleChange}
-                        disabled={varOcg === 'saving'}
-                        className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="exam_type" className="block text-sm font-medium text-gray-700 mb-1">
-                        Exam Type
+                      <label htmlFor="course_id" className="block text-sm font-medium text-gray-700">
+                        Course <span className="text-red-500">*</span>
                       </label>
                       <select
-                        id="exam_type"
-                        name="exam_type"
-                        value={formData.exam_type}
+                        id="course_id"
+                        name="course_id"
+                        value={formData.course_id}
                         onChange={handleChange}
+                        required
                         disabled={varOcg === 'saving'}
-                        className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500"
                       >
-                        <option value="midterm">Midterm</option>
-                        <option value="final">Final</option>
-                        <option value="quiz">Quiz</option>
-                        <option value="assignment">Assignment</option>
-                        <option value="other">Other</option>
+                        <option value="">No Course</option>
+                        {courses.map((course) => (
+                          <option key={course.course_id} value={course.course_id}>
+                            {course.course_name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Category */}
+                    <div>
+                      <label htmlFor="category" className="block text-sm font-medium text-gray-700">
+                        Category <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        id="category"
+                        name="category"
+                        value={formData.category}
+                        onChange={handleChange}
+                        required
+                        disabled={varOcg === 'saving'}
+                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="textbook">E-Book</option>
+                        <option value="notes">Notes</option>
+                        <option value="questions">Questions</option>
                       </select>
                     </div>
                   </div>
-                </div>
-              )}
-              
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Resource File
-                </label>
-                
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                  className="hidden"
-                  disabled={varOcg === 'saving'}
-                  accept=".pdf,.doc,.docx,.ppt,.pptx,.xlsx,.xls,.jpg,.jpeg,.png,.gif"
-                />
-                
-                {filePreview || formData.url ? (
-                  <div className="border rounded-md p-3 mb-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <FileText className="h-6 w-6 text-blue-500 mr-2" />
-                        <span className="text-sm truncate max-w-[200px]">
-                          {formData.file?.name || (formData.url && 'Current file')}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={removeSelectedFile}
+
+                  {/* File Type and Semester */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* File Type */}
+                    <div>
+                      <label htmlFor="fileType" className="block text-sm font-medium text-gray-700">
+                        File Type
+                      </label>
+                      <select
+                        id="fileType"
+                        name="fileType"
+                        value={formData.fileType}
+                        onChange={handleChange}
+                        required
                         disabled={varOcg === 'saving'}
-                        className="text-red-600 hover:text-red-800 text-sm ml-2"
+                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500"
                       >
-                        Remove
-                      </button>
+                        <option value="pdf">PDF</option>
+                        <option value="doc">DOC</option>
+                        <option value="ppt">PPT</option>
+                        <option value="xlsx">XLSX</option>
+                        <option value="image">Image</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+
+                    {/* Semester */}
+                    <div>
+                      <label htmlFor="semester" className="block text-sm font-medium text-gray-700">
+                        Semester
+                      </label>
+                      <select
+                        id="semester"
+                        name="semester"
+                        value={formData.semester}
+                        onChange={handleChange}
+                        required
+                        disabled={varOcg === 'saving'}
+                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        {[1, 2, 3, 4, 5, 6, 7, 8].map((semester) => (
+                          <option key={semester} value={semester}>
+                            Semester {semester}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
-                ) : (
-                  <>
-                    <div 
-                      onClick={triggerFileInput}
-                      className={`border-2 border-dashed border-gray-300 rounded-md p-6 flex flex-col items-center cursor-pointer hover:border-blue-500 transition-colors ${varOcg === 'saving' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                      <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                      <p className="text-sm text-gray-500">
-                        Click to upload or drag and drop
-                      </p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        PDF, DOC, PPT, XLSX, images, etc. (Max 10MB)
-                      </p>
+
+                  {/* Subject */}
+                  <div>
+                    <label htmlFor="subject" className="block text-sm font-medium text-gray-700">
+                      Subject <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="subject"
+                      name="subject"
+                      value={formData.subject}
+                      onChange={handleChange}
+                      required
+                      disabled={varOcg === 'saving'}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="e.g., Mathematics, Computer Science, Physics, etc."
+                    />
+                  </div>
+
+                  {/* Author (for Textbook/Notes) */}
+                  {(formData.category === 'textbook' || formData.category === 'notes') && (
+                    <div>
+                      <label htmlFor="uploadedBy" className="block text-sm font-medium text-gray-700">
+                        Author <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        id="uploadedBy"
+                        name="uploadedBy"
+                        value={formData.uploadedBy}
+                        onChange={handleChange}
+                        required
+                        disabled={varOcg === 'saving'}
+                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="e.g., John Doe, Jane Smith, etc."
+                      />
                     </div>
-                    {fileError && (
-                      <p className="text-red-500 text-xs mt-1">{fileError}</p>
-                    )}
-                  </>
-                )}
-              </div>
-              
-              <div className="flex justify-end gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  disabled={varOcg === 'saving'}
-                  className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={varOcg === 'saving'}
-                  className="flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                >
-                  {varOcg === 'saving' && (
-                    <span className="mr-2 h-4 w-4 animate-spin rounded-full border-t-2 border-white" />
                   )}
-                  {varOcg === 'saving'
-                    ? 'Saving…'
-                    : isEditing
-                    ? 'Update'
-                    : 'Save'}
-                </button>
+
+                  {/* Question Paper Details (for Questions) */}
+                  {formData.category === 'questions' && (
+                    <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                      <h4 className="text-sm font-medium text-gray-700 mb-3">Question Paper Details</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Year */}
+                        <div>
+                          <label htmlFor="year" className="block text-sm font-medium text-gray-700">
+                            Year
+                          </label>
+                          <input
+                            type="number"
+                            id="year"
+                            name="year"
+                            min="1990"
+                            max={new Date().getFullYear()}
+                            value={formData.year}
+                            onChange={handleChange}
+                            required
+                            disabled={varOcg === 'saving'}
+                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </div>
+
+                        {/* Exam Type */}
+                        <div>
+                          <label htmlFor="exam_type" className="block text-sm font-medium text-gray-700">
+                            Exam Type
+                          </label>
+                          <select
+                            id="exam_type"
+                            name="exam_type"
+                            value={formData.exam_type}
+                            onChange={handleChange}
+                            required
+                            disabled={varOcg === 'saving'}
+                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500"
+                          >
+                            <option value="midterm">Midterm</option>
+                            <option value="final">Final</option>
+                            <option value="quiz">Quiz</option>
+                            <option value="assignment">Assignment</option>
+                            <option value="other">Other</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* File Upload */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Resource File</label>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileChange}
+                      disabled={varOcg === 'saving'}
+                      className="hidden"
+                      accept=".pdf,.doc,.docx,.ppt,.pptx,.xlsx,.xls,.jpg,.jpeg,.png,.gif"
+                    />
+                    {filePreview || formData.url ? (
+                      <div className="border rounded-md p-3 mb-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center">
+                            <FileText className="h-6 w-6 text-blue-500 mr-2" />
+                            <span className="text-sm truncate max-w-[200px]">
+                              {formData.file?.name || (formData.url && 'Current file')}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={removeSelectedFile}
+                            disabled={varOcg === 'saving'}
+                            className="text-red-600 hover:text-red-800 text-sm ml-2"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        onClick={triggerFileInput}
+                        className={`border-2 border-dashed border-gray-300 rounded-md p-6 flex flex-col items-center cursor-pointer hover:border-blue-500 transition-colors ${
+                          varOcg === 'saving' ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                      >
+                        <Upload className="h-8 w-8 text-gray-400 mb-2" />
+                        <p className="text-sm text-gray-500">Click to upload or drag and drop</p>
+                        <p className="text-xs text-gray-400 mt-1">PDF, DOC, PPT, XLSX, images, etc. (Max 10MB)</p>
+                      </div>
+                    )}
+                    {fileError && <p className="text-red-500 text-xs mt-1">{fileError}</p>}
+                  </div>
+
+                  {/* Buttons */}
+                  <div className="flex justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={()=>{onClose()}}
+                      disabled={varOcg === 'saving'}
+                      className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={varOcg === 'saving'}
+                      className="flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                    >
+                      {varOcg === 'saving' && (
+                        <span className="mr-2 h-4 w-4 animate-spin rounded-full border-t-2 border-white" />
+                      )}
+                      {varOcg === 'saving' ? 'Saving…' : isEditing ? 'Update' : 'Save'}
+                    </button>
+                  </div>
+                </form>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       </div>
