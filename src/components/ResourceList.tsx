@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Course, Resource } from '../types';
 import Header from './Layout/Header';
 import Footer from './Layout/Footer';
-import { ArrowLeft, BookOpen, FileText, FileQuestion, Download, Eye, ExternalLink } from 'lucide-react';
+import { ArrowLeft, BookOpen, FileText, FileQuestion, Download, } from 'lucide-react';
 import { API_ENDPOINTS } from '../utils/apiService';
 import { getApiBaseUrl } from '../utils/config';
 
@@ -31,6 +31,8 @@ const ResourceList: React.FC<ResourceListProps> = ({
     // Fetch resources based on active tab
     useEffect(() => {
         const fetchResources = async () => {
+            console.log(`Fetching resources for ${activeTab}...,
+                ${Course.course_id}`);
             try {
                 setLoading(true);
                 setError(null);
@@ -51,7 +53,7 @@ const ResourceList: React.FC<ResourceListProps> = ({
                         resourceType = 'ebooks';
                 }
 
-                const url = `${getApiBaseUrl()}${API_ENDPOINTS.RESOURCES}?course_code=${Course.course_code}&semester=${semester}&type=${resourceType}`;
+                const url = `${getApiBaseUrl()}${API_ENDPOINTS.RESOURCES}?course_id=${Course.course_id}&semester=${semester}&type=${resourceType}`;
                 const response = await fetch(url);
 
                 if (!response.ok) {
@@ -66,11 +68,11 @@ const ResourceList: React.FC<ResourceListProps> = ({
                         case 'ebooks':
                             if (data.data.ebooks) {
                                 const ebooksData = data.data.ebooks.map((ebook: any) => ({
-                                    id: ebook.id.toString(),
+                                    id: ebook.ebook_id.toString(),
                                     title: ebook.title,
                                     author: ebook.author || '',
                                     type: 'ebook',
-                                    courseCode: ebook.course_code,
+                                    courseId: ebook.course_id,
                                     semester: ebook.semester,
                                     subject: ebook.subject || '',
                                     description: ebook.description || '',
@@ -90,11 +92,11 @@ const ResourceList: React.FC<ResourceListProps> = ({
                         case 'notes':
                             if (data.data.notes) {
                                 const notesData = data.data.notes.map((note: any) => ({
-                                    id: note.id.toString(),
+                                    id: note.note_id.toString(),
                                     title: note.title,
                                     author: note.author || '',
                                     type: 'note',
-                                    courseCode: note.course_code,
+                                    CourseId: note.course_id,
                                     semester: note.semester,
                                     subject: note.subject || '',
                                     description: note.description || '',
@@ -115,11 +117,11 @@ const ResourceList: React.FC<ResourceListProps> = ({
                             if (data.data.oldquestion || data.data.question_papers) {
                                 const questions_data = data.data.oldquestion || data.data.question_papers;
                                 const questionsData = questions_data.map((question: any) => ({
-                                    id: question.id.toString(),
+                                    id: question.paper_id.toString(),
                                     title: question.title,
                                     author: question.author || '',
                                     type: 'question',
-                                    courseCode: question.course_code,
+                                    CourseId: question.course_id,
                                     semester: question.semester,
                                     subject: question.subject || '',
                                     description: question.description || '',
@@ -154,7 +156,7 @@ const ResourceList: React.FC<ResourceListProps> = ({
             } catch (err) {
                 console.error(`Error fetching ${activeTab}:`, err);
                 setError(`Failed to load ${activeTab}. Please try again later.`);
-                
+
                 // Clear current tab data
                 switch (activeTab) {
                     case 'ebooks':
@@ -173,7 +175,7 @@ const ResourceList: React.FC<ResourceListProps> = ({
         };
 
         fetchResources();
-    }, [Course.course_code, semester, activeTab]); // Added activeTab as dependency
+    }, [Course.course_id, semester, activeTab]); // Added activeTab as dependency
 
     // Format date for display
     const formatDate = (dateString: string) => {
@@ -200,37 +202,37 @@ const ResourceList: React.FC<ResourceListProps> = ({
             window.open(resource.file_path, '_blank');
         }
     };
-        const handleDownload = async({ filePath }: { filePath: string }) => {
-            try {
-                const response = await fetch(filePath, {
-                  mode: 'cors',
-                });
-            
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-            
-                const link = document.createElement('a');
+    const handleDownload = async ({ filePath }: { filePath: string }) => {
+        try {
+            const response = await fetch(filePath, {
+                mode: 'cors',
+            });
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+
+            const link = document.createElement('a');
+            link.href = url;
+            // generate a real filename from the URL
+            const filename = filePath.split('/').pop();
+            // check extension of file using regex
+            const extension = filename?.match(/\.(\w+)$/)?.[1];
+            if (extension) {
                 link.href = url;
-                // generate a real filename from the URL
-                const filename = filePath.split('/').pop();
-                // check extension of file using regex
-                const extension = filename?.match(/\.(\w+)$/)?.[1];
-                if (extension) {
-                    link.href = url;
-                    link.download = filename;
-                } else {
-                    link.href = url;
-                    link.download = 'filename.pdf'; 
-                }
-                document.body.appendChild(link);
-                link.click();
-            
-                document.body.removeChild(link);
-                window.URL.revokeObjectURL(url);
-              } catch (error) {
-                console.error('Download failed:', error);
-              }
-        };
+                link.download = filename;
+            } else {
+                link.href = url;
+                link.download = 'filename.pdf';
+            }
+            document.body.appendChild(link);
+            link.click();
+
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Download failed:', error);
+        }
+    };
 
     // Determine which resources to show based on active tab
     const getActiveResources = () => {
@@ -295,9 +297,7 @@ const ResourceList: React.FC<ResourceListProps> = ({
                             >
                                 <BookOpen className="mr-2 h-5 w-5" />
                                 E-Books
-                                <span className="ml-2 bg-gray-100 text-gray-700 py-0.5 px-2 rounded-full text-xs">
-                                    {ebooks.length}
-                                </span>
+
                             </button>
 
                             <button
@@ -309,9 +309,7 @@ const ResourceList: React.FC<ResourceListProps> = ({
                             >
                                 <FileText className="mr-2 h-5 w-5" />
                                 Notes
-                                <span className="ml-2 bg-gray-100 text-gray-700 py-0.5 px-2 rounded-full text-xs">
-                                    {notes.length}
-                                </span>
+
                             </button>
 
                             <button
@@ -323,9 +321,7 @@ const ResourceList: React.FC<ResourceListProps> = ({
                             >
                                 <FileQuestion className="mr-2 h-5 w-5" />
                                 Question Papers
-                                <span className="ml-2 bg-gray-100 text-gray-700 py-0.5 px-2 rounded-full text-xs">
-                                    {questions.length}
-                                </span>
+
                             </button>
                         </div>
                     </div>
@@ -392,13 +388,13 @@ const ResourceList: React.FC<ResourceListProps> = ({
                                                 )}
                                                 <div className="mt-4 flex flex-wrap gap-3">
                                                     <button
-                                                    onClick={()=>handleDownload({filePath: resource.file_path || ''})}
+                                                        onClick={() => handleDownload({ filePath: resource.file_path || '' })}
                                                         className="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md bg-green-50 text-green-700 hover:bg-green-100 focus:outline-none"
                                                     >
                                                         <Download className="mr-1.5 h-4 w-4" />
                                                         Download
                                                     </button>
-                                                   
+
                                                 </div>
                                             </div>
                                         </div>

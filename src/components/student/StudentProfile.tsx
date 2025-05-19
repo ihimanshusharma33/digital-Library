@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect} from 'react';
 import { useAuth } from '../../utils/AuthContext';
 import { api } from '../../utils/apiService';
-import { User as UserIcon, Phone, Mail, BookOpen, Building, GraduationCap, Upload, X } from 'lucide-react';
+import { User as UserIcon, Phone, Mail, BookOpen, Building, GraduationCap, } from 'lucide-react';
 import { Student } from '../../types';
 import LibraryCardDownloader from './LibraryCardDownloader';
 

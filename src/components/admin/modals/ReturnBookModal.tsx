@@ -13,7 +13,7 @@ interface UserIssuedBooksResponse {
   };
   total_fine: number;
   issued_books: Array<{
-    id: number;
+    issue_id: number; // <-- use issue_id everywhere
     book_id: number;
     book_title: string;
     book_author: string;
@@ -30,14 +30,14 @@ interface UserIssuedBooksResponse {
 
 // Create a proper type for the return book request
 interface ReturnBookRequest {
-  issued_book_id: number;  // Changed from passing in URL to request body
+  issue_id: number; // <-- use issue_id as required by backend
   return_date: string;
   remarks?: string;
   fine_amount?: number;
 }
 
-const ReturnBookModal: React.FC<ReturnBookModalProps> = ({ 
-  isOpen, 
+const ReturnBookModal: React.FC<ReturnBookModalProps> = ({
+  isOpen,
   onClose,
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -51,7 +51,7 @@ const ReturnBookModal: React.FC<ReturnBookModalProps> = ({
   const [fineAmount, setFineAmount] = useState(0);
   const [calculatedFine, setCalculatedFine] = useState(0);
   const [userData, setUserData] = useState<UserIssuedBooksResponse['user'] | null>(null);
-  
+
   // Reset everything when the modal opens
   useEffect(() => {
     if (isOpen) {
@@ -66,13 +66,13 @@ const ReturnBookModal: React.FC<ReturnBookModalProps> = ({
       setError(null);
     }
   }, [isOpen]);
-  
+
   // Calculate fine when a book is selected or return date changes
   useEffect(() => {
     if (selectedIssuedBook) {
       const dueDate = new Date(selectedIssuedBook.due_date);
       const currentReturnDate = new Date(returnDate);
-      
+
       if (currentReturnDate > dueDate) {
         const daysLate = Math.ceil((currentReturnDate.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
         // Assuming a fine of $1 per day late
@@ -92,20 +92,20 @@ const ReturnBookModal: React.FC<ReturnBookModalProps> = ({
       setError('Please enter a Library ID');
       return;
     }
-    
+
     setIsSearching(true);
     setError(null);
     setIssuedBooks([]);
     setUserData(null);
-    
+
     try {
       const response = await api.getUserIssuedBooks(libraryIdSearchTerm);
-      
+
       if (response && response.status) {
         // Type assertion to ensure proper type safety
         if (response.data && 'user' in response.data && 'issued_books' in response.data) {
           const typedData = response.data as unknown as UserIssuedBooksResponse;
-          
+
           // Extract user info and issued books from the response - only set once
           setUserData(typedData.user);
 
@@ -150,20 +150,18 @@ const ReturnBookModal: React.FC<ReturnBookModalProps> = ({
     try {
       // Set return date to today's date - not editable by user
       const today = new Date().toISOString().split('T')[0];
-      
+
       const returnBookData: ReturnBookRequest = {
-        issued_book_id: selectedIssuedBook.id,
-        return_date: today,  // Always use today's date
+        issue_id: selectedIssuedBook.issue_id, // <-- use issue_id here
+        return_date: today,
         ...(fineAmount > 0 ? { fine_amount: fineAmount } : {}),
         ...(remarks.trim() ? { remarks: remarks.trim() } : {})
       };
 
-      // Update to match your new API call structure
       const response = await api.returnBook(returnBookData);
 
       if (response && response.status) {
-        // Update the UI to reflect the returned book
-        setIssuedBooks(prevBooks => prevBooks.filter(book => book.id !== selectedIssuedBook.id));
+        setIssuedBooks(prevBooks => prevBooks.filter(book => book.issue_id !== selectedIssuedBook.issue_id));
         setSelectedIssuedBook(null);
         setRemarks('');
       } else {
@@ -195,7 +193,7 @@ const ReturnBookModal: React.FC<ReturnBookModalProps> = ({
                 <X className="h-6 w-6" />
               </button>
             </div>
-            
+
             {error && (
               <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md text-sm">
                 {error}
@@ -262,8 +260,8 @@ const ReturnBookModal: React.FC<ReturnBookModalProps> = ({
                     <div className="max-h-64 overflow-y-auto border rounded-md">
                       <div className="divide-y">
                         {issuedBooks.map((issuedBook) => (
-                          <div 
-                            key={issuedBook.id} 
+                          <div
+                            key={issuedBook.issue_id}
                             className="p-3 hover:bg-gray-50 cursor-pointer"
                             onClick={() => handleBookSelection(issuedBook)}
                           >
@@ -297,7 +295,7 @@ const ReturnBookModal: React.FC<ReturnBookModalProps> = ({
                   {selectedIssuedBook.book_isbn && (
                     <p className="text-sm text-gray-600">ISBN: {selectedIssuedBook.book_isbn}</p>
                   )}
-                  
+
                   <h4 className="font-medium mt-3 mb-1">Student Information</h4>
                   {userData && (
                     <>
@@ -305,7 +303,7 @@ const ReturnBookModal: React.FC<ReturnBookModalProps> = ({
                       <p className="text-sm text-gray-600">ID: {userData.library_id}</p>
                     </>
                   )}
-                  
+
                   <div className="grid grid-cols-2 gap-2 mt-3">
                     <div>
                       <p className="text-xs text-gray-500">Issue Date</p>
@@ -364,7 +362,7 @@ const ReturnBookModal: React.FC<ReturnBookModalProps> = ({
                     </div>
                   </div>
                 )}
-                
+
                 <div>
                   <label htmlFor="remarks" className="block text-sm font-medium text-gray-700">
                     Remarks (Optional)

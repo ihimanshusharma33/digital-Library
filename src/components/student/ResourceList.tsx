@@ -127,7 +127,7 @@ const ResourceList: React.FC = () => {
             setLoading(true);
             setError(null);
 
-            const response = await api.get<{ status: boolean; data: ResourceData }>(`/resources?user_id=${user.user_id}`);
+            const response = await api.get<{ status: boolean; data: ResourceData }>(`/user/${user.user_id}/resources`);
 
             if (response.data && response.status) {
                 console.log("User resources data:", response.data);
@@ -177,38 +177,7 @@ const ResourceList: React.FC = () => {
         }
     };
 
-    const handleDeleteResource = async (resource: DisplayResource) => {
-        if (!confirm(`Are you sure you want to delete this ${getTypeLabel(resource.type).toLowerCase()}?`)) {
-            return;
-        }
-
-        try {
-            let endpoint = '';
-            switch (resource.type) {
-                case 'ebook':
-                    endpoint = `/ebooks/${resource.id}`;
-                    break;
-                case 'note':
-                    endpoint = `/notes/${resource.id}`;
-                    break;
-                case 'question_paper':
-                    endpoint = `/question-papers/${resource.id}`;
-                    break;
-            }
-
-            await api.delete(endpoint);
-
-            // Update resources list after deletion
-            setDisplayResources(displayResources.filter(r => !(r.id === resource.id && r.type === resource.type)));
-
-            // Also update the original data
-            fetchUserResources();
-        } catch (err) {
-            console.error("Error deleting resource:", err);
-            alert("Failed to delete resource. Please try again.");
-        }
-    };
-
+ 
 
     const getResourceCount = (): number => {
         return resourceData.ebooks.length + resourceData.notes.length + resourceData.question_papers.length;
@@ -227,11 +196,11 @@ const ResourceList: React.FC = () => {
                 </h1>
 
                 <button
+                    type="button"
                     onClick={() => setShowUploadModal(true)}
-                    className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                    className="px-4 py-2 bg-blue-600 text-white rounded"
                 >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Upload New Resource
+                    Upload Resource
                 </button>
             </div>
 
@@ -379,7 +348,10 @@ const ResourceList: React.FC = () => {
             <ResourceUploadModal
                 isOpen={showUploadModal}
                 onClose={() => setShowUploadModal(false)}
-                onSuccess={fetchUserResources}
+                onSuccess={() => {
+                    setShowUploadModal(false);
+                    fetchUserResources();
+                }}
             />
         </div>
     );

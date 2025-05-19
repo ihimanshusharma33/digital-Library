@@ -22,7 +22,7 @@ const CourseSelection: React.FC<CourseSelectionProps> = ({ onCourseSelect }) => 
         
         if (data && data.data) {
           const courseList = data.data.map((course: any) => ({
-            id: course.id.toString(),
+            course_id: course.course_id.toString(),
             course_name: course.course_name || course.name,
             course_code: course.course_code || course.code,
             department: course.department,

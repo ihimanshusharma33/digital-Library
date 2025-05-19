@@ -771,7 +771,7 @@ export const api = {
     httpClient.get<ApiResponse<IssuedBook[]>>(`/issued-books?library_id=${encodeURIComponent(libraryId)}`),
 
   returnBook: (data: {
-    issued_book_id: number;
+    issue_id: number;
     return_date: string;
     fine_amount?: number;
     remarks?: string;

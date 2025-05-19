@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Loader } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../utils/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../../utils/apiService';
 import { LoginResponse, User } from '../../types';
 
@@ -10,9 +10,35 @@ const SignIn: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-
+  const [initialLogoutDone, setInitialLogoutDone] = useState(false);
+  const { login, logout, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
-  const { login } = useAuth();
+
+  // First, add a state to track if we've already done the initial logout
+  // const [initialLogoutDone, setInitialLogoutDone] = useState(false);
+
+  // When the component mounts, log the user out first
+  useEffect(() => {
+    // Only run this once when component mounts
+    if (!initialLogoutDone) {
+      logout(); // Log the user out first
+      setInitialLogoutDone(true); // Mark logout as done
+    }
+  }, []);
+
+  // This effect will run after login attempts to handle redirects
+  useEffect(() => {
+    // Only redirect if we've already done the initial logout
+    // AND the user is authenticated (which means they just logged in)
+    if (initialLogoutDone && isAuthenticated && user) {
+      // Redirect based on role
+      if (user.role === 'admin') {
+        navigate('/admin');
+      } else if (user.role === 'student') {
+        navigate('/student');
+      }
+    }
+  }, [initialLogoutDone, isAuthenticated, user, navigate]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,7 +135,7 @@ const SignIn: React.FC = () => {
               </label>
               <input
                 id="email"
-                type="email"
+                type="text"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter your email or Phone number or Library ID"

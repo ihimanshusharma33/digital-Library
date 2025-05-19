@@ -1,4 +1,4 @@
-// Course related types
+
 export interface Course {
   course_id: number;
   course_code: string;
@@ -574,6 +574,7 @@ export interface IssuedBookDetails {
   return_date: string | null;
   is_returned: boolean;
   fine_amount: number;
+  total_fine: number;
   status: string;
   remarks: string | null;
   cover_image?: string; // Adding this in case you need it for UI

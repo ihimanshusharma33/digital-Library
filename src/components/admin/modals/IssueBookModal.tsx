@@ -11,6 +11,8 @@ interface IssueBookModalProps {
 }
 
 const IssueBookModal: React.FC<IssueBookModalProps> = ({ isOpen, onClose, onSuccess }) => {
+  const auth = useAuth(); // <-- Move this here, at the top level
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bookSearchTerm, setBookSearchTerm] = useState('');
@@ -101,16 +103,13 @@ const IssueBookModal: React.FC<IssueBookModalProps> = ({ isOpen, onClose, onSucc
     setSuccessMessage(null);
 
     try {
-      // Get current user details with guaranteed valid ID
-      const currentUser = useAuth();
-
       const requestData = {
         book_id: selectedBook.book_id,
         user_id: selectedStudent.user_id,
         issue_date: issueDate, // Today's date
         due_date: returnDate,
-        issued_by: currentUser.user?.user_id || 0, // Ensure 'id' exists in AuthContextType and fallback to 0 if null
-        issued_by_name: currentUser.user?.name || 'Unknown',
+        issued_by: auth.user?.user_id || 0, // Use auth here
+        issued_by_name: auth.user?.name || 'Unknown',
         remarks: remarks.trim() || undefined
       };
 
@@ -328,7 +327,6 @@ const IssueBookModal: React.FC<IssueBookModalProps> = ({ isOpen, onClose, onSucc
                               <input
                                 type="radio"
                                 name="bookSelection"
-                                className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500"
                                 onChange={() => handleSelectBook(book)}
                               />
                               <div className="ml-3">
@@ -435,7 +433,6 @@ const IssueBookModal: React.FC<IssueBookModalProps> = ({ isOpen, onClose, onSucc
                               <input
                                 type="radio"
                                 name="studentSelection"
-                                className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500"
                                 onChange={() => setSelectedStudent(student)}
                               />
                               <div className="ml-3">
@@ -544,5 +541,6 @@ const IssueBookModal: React.FC<IssueBookModalProps> = ({ isOpen, onClose, onSucc
     </div>
   );
 };
+
 
 export default IssueBookModal;

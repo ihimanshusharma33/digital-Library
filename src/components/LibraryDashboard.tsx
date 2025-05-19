@@ -40,7 +40,7 @@ const LibraryDashboard: React.FC = () => {
         if (data && data.data) {
           console.log('data recived', data.data);
           const courseList = data.data.map((course: any) => ({
-            id: course.course_id.toString(),
+            course_id: course.course_id.toString(),
             course_name: course.course_name || course.name,
             course_code: course.course_code || course.code,
             department: course.department,
@@ -360,7 +360,7 @@ const LibraryDashboard: React.FC = () => {
                   <div>
                     {visibleNotices.map((notice, index) => (
                       <div
-                        key={notice.id}
+                        key={notice.notification_id}
                         className={`p-4 ${index !== visibleNotices.length - 1 ? 'border-b border-gray-100' : ''}`}
                       >
                         <div className="flex justify-between items-start">
@@ -371,7 +371,7 @@ const LibraryDashboard: React.FC = () => {
                         </div>
 
                         <p className="mt-2 text-sm text-gray-600 line-clamp-2">
-                          {notice.content}
+                          {notice.description}
                         </p>
 
                         <div className="mt-3">
@@ -379,7 +379,7 @@ const LibraryDashboard: React.FC = () => {
                             className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center"
                             onClick={(e) => {
                               e.stopPropagation();
-                              alert(`${notice.title}\n\n${notice.content}`);
+                              alert(`${notice.title}\n\n${notice.description}`);
                             }}
                           >
                             Read More <ExternalLink className="ml-1 h-3 w-3" />

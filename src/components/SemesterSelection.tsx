@@ -20,6 +20,8 @@ const SemesterSelection: React.FC<SemesterSelectionProps> = ({
 
 
   if (showResources) {
+    console.log("Selected semester:", semesterSelected);
+    console.log("Course data:", course);
     return (
       <ResourceList semester={semesterSelected} Course={course} onclose={() => setShowResources(false)} />
     )

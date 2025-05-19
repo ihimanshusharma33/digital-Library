@@ -58,7 +58,7 @@ const GenerateNocModal: React.FC<GenerateNocModalProps> = ({ isOpen, onClose }) 
         const issuedBooks = data.issued_books as IssuedBook[];
         // If no books have been issued, treat as eligible for NOC
         const allBooksReturned = issuedBooks.length === 0 || issuedBooks.every(book => book.is_returned);
-        const hasPendingFine = typeof data.total_fine === 'number' && data.total_fine > 0;
+        const hasPendingFine = 'total_fine' in data && typeof (data as { total_fine: number }).total_fine === 'number' && (data as { total_fine: number }).total_fine > 0;
 
         if (allBooksReturned && !hasPendingFine) {
           setHasReturnedAllBooks(true);
@@ -104,12 +104,11 @@ const fetchUserDetails = async (userId: number) => {
   setIsFetchingDetails(true);
 
   try {
-    const response = await api.get(`/user/${userId}`) as { status: boolean; data: Student };
+    const response = await api.get<ApiResponse>(`/user/${userId}`);
     if (response && response.status) {
       const userData = response.data as Student;
       setSelectedStudent(userData);
 
-      // Fetch course info if course_id exists
       if (userData.course_id) {
         const courseResp = await api.get<ApiResponse<{ course_name: string; course_code: string; department_name?: string }>>(`/course/${userData.course_id}`);
         if (courseResp && courseResp.status && courseResp.data) {

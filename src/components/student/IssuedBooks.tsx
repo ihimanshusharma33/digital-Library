@@ -23,7 +23,7 @@ const IssuedBooks: React.FC = () => {
   }, []);
 
   const fetchIssuedBooks = async () => {
-    if (!user?.id) {
+    if (!user?.user_id) {
       setError("User information is not available");
       setLoading(false);
       return;
@@ -32,7 +32,7 @@ const IssuedBooks: React.FC = () => {
     try {
       setLoading(true);
       // Call the API with user ID to fetch issued books
-      const response = await api.get<IssuedBooksResponse>(`/issued-booksbyId/${user.id}`);
+      const response = await api.get<IssuedBooksResponse>(`/issued-booksbyId/${user.user_id}`);
       
       if (response?.status && response?.data) {
         const { issued_books, total_fine, user: userData } = response.data;

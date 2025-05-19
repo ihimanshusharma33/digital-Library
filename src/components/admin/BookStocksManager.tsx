@@ -309,8 +309,17 @@ const BookStocksManager: React.FC = () => {
         // Add new book (do not send book_id)
         const response = await api.createBook(newBook);
         if (response && (response.status || response.success) && response.data) {
-          setBooks(prevBooks => [response.data, ...prevBooks]);
-          setFilteredBooks(prevBooks => [response.data, ...prevBooks]);
+          setBooks(prevBooks =>
+            prevBooks.map(book =>
+              book.book_id === response.data?.book_id ? response.data ?? book : book
+            ).filter((book): book is Book => book !== undefined)
+          );
+          setFilteredBooks(prevBooks =>
+            prevBooks.map(book =>
+              book.book_id === response.data?.book_id ? response.data ?? book : book
+            ).filter((book): book is Book => book !== undefined)
+          );
+          
           setNotification({
             type: 'success',
             message: 'Book added successfully.'
